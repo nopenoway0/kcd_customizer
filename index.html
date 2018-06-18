@@ -1,0 +1,54 @@
+<html>
+	<head>
+		<title>KCD Customizer</title>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<script src="js/three.js"></script>
+		<script src="js/LoaderSupport.js"></script>
+		<script src="js/OBJLoader2.js"></script>
+		<script src="js/MTLLoader.js"></script>
+		<script src="js/setup_functions.js"></script>
+		<script>
+			window.onload = setSlider;
+			var current_rotation = 50, base_direction = null, model = null;
+			var scene = new THREE.Scene();
+			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+			var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
+			var renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight - 40);
+			document.body.appendChild( renderer.domElement );
+
+			var manager = new THREE.LoadingManager();
+			scene.add( light );
+			camera.position.y = .25, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
+			load_model(scene).then((loaded_model) => {
+				model = loaded_model;
+			})
+
+			function setSlider() 
+			{
+				var slider = document.getElementById("rotate-head");
+				slider.oninput = function() {
+					current_rotation = this.value;
+				};
+			}
+			
+			(function startRendering(){
+				setTimeout(() => {
+					if(model != undefined)
+						model.setRotationFromAxisAngle(new THREE.Vector3(0,0,1), 2*3.14 * ((current_rotation - 50) / 100.0));
+					renderer.render(scene, camera);
+					startRendering();
+				}, 33);
+			})();
+
+		</script>
+		<div id="camera-controls" style="width:100%">
+			<input style="width:100%" type="range" min="1" max="100" value="50" class="slider" id="rotate-head">
+		</div>
+	</body>
+</html>
