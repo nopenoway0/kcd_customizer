@@ -88,13 +88,20 @@
 					function synchronous_load(counter, max)
 					{
 						new Promise((resolve, reject) =>{
-							load_asset(texture_database[model_index][counter], 'texture').then((texture)=>
+							load_asset(texture_database[model_index][counter], 'texture').then(texture =>
 							{
 								if(counter >= max)
 									resolve(-1);
 								// set face texture
-								model.children[counter].material = new THREE.MeshLambertMaterial({map: texture}); 
-								resolve(counter + 1);
+								else{
+									model.children[counter].material = new THREE.MeshLambertMaterial({map: texture}); 
+									resolve(counter + 1);
+								}
+							}, err =>{
+								if(counter >= max)
+									resolve(-1);
+								else
+									resolve(counter + 1);
 							});
 						}).then((count)=>
 						{
@@ -105,12 +112,20 @@
 					synchronous_load(0, texture_database[model_index].length);
 				});
 			};
+
+			function prev(type)
+			{
+				if(model_index > 0)
+					model_index -= 2;
+				next(type);
+			}
+
 		</script>
 		<div id="camera-controls" style="width:100%">
 			<input style="width:100%" type="range" min="1" max="100" value="50" class="slider" id="rotate-head">
 		</div>
 		<div id="part-controls" style="width:100%; float: right;">
-			<button class="ui icon button">
+			<button class="ui icon button" onclick="prev('head')">
 				<i class="angle left icon"></i>
 			</button>
 			Head
