@@ -1,6 +1,8 @@
 var fs = require('fs')
 var xml2js = require('xml2js')
-
+var THREE = require('three')
+require('./js/LoaderSupport.js')
+require('./js/OBJLoader2.js')
 function create_texture_database(filelist)
 {
 	return new Promise((resolve, reject) => {
@@ -77,6 +79,7 @@ function get_file_list(directory, re, include_path = true)
 function load_asset(filename, type = 'obj', params = null){
 	return new Promise((resolve, reject) => {
 	let loader = null;
+	console.log(THREE);
 	if(type == 'obj')
 	{
 		loader = new THREE.OBJLoader2()
