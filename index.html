@@ -1,5 +1,6 @@
 <html>
 	<head>
+	<link rel="stylesheet" href="semantic/semantic.css">
 		<title>KCD Customizer</title>
 		<style>
 			body { margin: 0; }
@@ -7,14 +8,17 @@
 		</style>
 	</head>
 	<body>
+		<script src="js/jquery-3.3.1.js"></script>
 		<script src="js/three.js"></script>
 		<script src="js/LoaderSupport.js"></script>
 		<script src="js/OBJLoader2.js"></script>
 		<script src="js/MTLLoader.js"></script>
 		<script src="js/setup_functions.js"></script>
+		<script src="js/TGALoader.js"></script>
+		<script src="semantic/semantic.js"></script>
 		<script>
 			window.onload = setSlider;
-			var current_rotation = 50, base_direction = null, model = null;
+			var current_rotation = 50, base_direction = null, model = null, model_index = -1, texture_database = null;
 			var scene = new THREE.Scene();
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
 			var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
@@ -22,12 +26,23 @@
 			renderer.setSize( window.innerWidth, window.innerHeight - 40);
 			document.body.appendChild( renderer.domElement );
 
-			var manager = new THREE.LoadingManager();
+			// get paths to files. model_paths and material paths must be in same order
+			var model_paths = get_file_list('models/', /.*\.obj/i);
+			var material_paths = get_file_list('materials/', /.*\.mtl/i);
+
+			// load all textures based on materials
+			create_texture_database(material_paths).then((db)=>{
+				texture_database = db;
+				console.log(db);
+			});
+			
+			//var texture_paths = get_file_list('textures/', /.*\.jpg/i);
+
+			next('head');
+
+			// set up scene with lighting and camera
 			scene.add( light );
-			camera.position.y = .25, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
-			load_model(scene).then((loaded_model) => {
-				model = loaded_model;
-			})
+			camera.position.y = .28, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
 
 			function setSlider() 
 			{
@@ -36,19 +51,72 @@
 					current_rotation = this.value;
 				};
 			}
-			
+
 			(function startRendering(){
 				setTimeout(() => {
-					if(model != undefined)
+					if(model != null)
 						model.setRotationFromAxisAngle(new THREE.Vector3(0,0,1), 2*3.14 * ((current_rotation - 50) / 100.0));
 					renderer.render(scene, camera);
 					startRendering();
 				}, 33);
 			})();
 
+			function set_model(result)
+			{
+				model = result.detail.loaderRootNode;
+				base_direction = model.getWorldDirection();
+			}
+
+			function set_material(model, material)
+			{
+				model.traverse(function(child) {
+				   	if (child instanceof THREE.Mesh)
+				        child.material = material;
+			    });
+			}
+
+			function next(type)
+			{
+				model_index = (model_index + 1) % model_paths.length;
+				console.log('switching to ' + model_paths[model_index]);
+				scene.remove(model);
+				load_asset(model_paths[model_index]).then((result) =>{
+					set_model(result);
+					scene.add(model);
+					console.log("loading following texts:");
+					console.log(texture_database[model_index]);
+					function synchronous_load(counter, max)
+					{
+						new Promise((resolve, reject) =>{
+							load_asset(texture_database[model_index][counter], 'texture').then((texture)=>
+							{
+								if(counter >= max)
+									resolve(-1);
+								// set face texture
+								model.children[counter].material = new THREE.MeshLambertMaterial({map: texture}); 
+								resolve(counter + 1);
+							});
+						}).then((count)=>
+						{
+							if(count >= 0)
+								synchronous_load(count, max);
+						});
+					}				
+					synchronous_load(0, texture_database[model_index].length);
+				});
+			};
 		</script>
 		<div id="camera-controls" style="width:100%">
 			<input style="width:100%" type="range" min="1" max="100" value="50" class="slider" id="rotate-head">
+		</div>
+		<div id="part-controls" style="width:100%; float: right;">
+			<button class="ui icon button">
+				<i class="angle left icon"></i>
+			</button>
+			Head
+			<button class="ui icon button" onclick="next('head')">
+				<i class="angle right icon"></i>
+			</button>
 		</div>
 	</body>
 </html>
