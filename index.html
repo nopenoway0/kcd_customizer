@@ -8,13 +8,13 @@
 		</style>
 	</head>
 	<body>
-		<script src="js/jquery-3.3.1.js"></script>
-		<script src="js/three.js"></script>
+		<script>
+			var THREE = require('three');
+		</script>
 		<script src="js/LoaderSupport.js"></script>
 		<script src="js/OBJLoader2.js"></script>
 		<script src="js/MTLLoader.js"></script>
 		<script src="js/setup_functions.js"></script>
-		<script src="js/TGALoader.js"></script>
 		<script src="semantic/semantic.js"></script>
 		<script>
 			window.onload = setSlider;
@@ -23,7 +23,7 @@
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
 			var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
 			var renderer = new THREE.WebGLRenderer();
-			renderer.setSize( window.innerWidth, window.innerHeight - 40);
+			renderer.setSize( window.innerWidth, window.innerHeight - 70);
 			document.body.appendChild( renderer.domElement );
 
 			// get paths to files. model_paths and material paths must be in same order
