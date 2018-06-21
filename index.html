@@ -19,7 +19,7 @@
 		<script>
 			window.onload = setSlider;
 			var current_rotation = 50, base_direction = null, model = null, model_index = -1, texture_database = null;
-			var scene = new THREE.Scene();
+			var scene = new THREE.Scene(), skin_model_path = "materials/";
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
 			var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
 			var renderer = new THREE.WebGLRenderer();
@@ -33,7 +33,6 @@
 			// load all textures based on materials
 			create_texture_database(material_paths).then((db)=>{
 				texture_database = db;
-				console.log(db);
 			});
 			
 			//var texture_paths = get_file_list('textures/', /.*\.jpg/i);
@@ -83,12 +82,11 @@
 				load_asset(model_paths[model_index]).then((result) =>{
 					set_model(result);
 					scene.add(model);
-					console.log("loading following texts:");
-					console.log(texture_database[model_index]);
+					console.log("loading following textures:" + texture_database['model'][model_index]);
 					function synchronous_load(counter, max)
 					{
 						new Promise((resolve, reject) =>{
-							load_asset(texture_database[model_index][counter], 'texture').then(texture =>
+							load_asset(texture_database['model'][model_index][counter], 'texture').then(texture =>
 							{
 								if(counter >= max)
 									resolve(-1);
@@ -109,7 +107,7 @@
 								synchronous_load(count, max);
 						});
 					}				
-					synchronous_load(0, texture_database[model_index].length);
+					synchronous_load(0, texture_database['model'][model_index].length);
 				});
 			};
 
@@ -118,6 +116,22 @@
 				if(model_index > 0)
 					model_index -= 2;
 				next(type);
+			}
+
+			function exportHead()
+			{
+				// create strings to show where would export
+				let re = /.*\/(.*)_.*\.obj/i
+				let model_name = model_paths[model_index].match(re)[1];
+				let model_filepath = skin_model_path + model_name + ".skin", mtl_filepath = skin_model_path + model_name + ".mtl";
+				rmdir('exported/kcd_custom_head/Data/custom_head')
+					.then(() =>rmdir('exported/kcd_custom_head/Data/__fastload/custom_head'))
+					.catch(() => mkdir('exported/kcd_custom_head/Data/custom_head'))
+					.then(() => copy(model_filepath, 'exported/kcd_custom_head/Data/custom_head/henry.skin'))
+					.then(() => copy(mtl_filepath, 'exported/kcd_custom_head/Data/custom_head/henry.mtl'))
+					.then(()=>zipFolder('exported/kcd_custom_head/Data/custom_head/', 'exported/kcd_custom_head/Data/kcd_custom_head.pak', ['henry.mtl', 'henry.skin'], 'Objects/characters/humans/head'))
+					.then(() => copy('exported/kcd_custom_head/Data/kcd_custom_head.pak', 'exported/kcd_custom_head/Data/__fastload/kcd_custom_head.pak'))
+					.then(() => rmdir('exported/kcd_custom_head/Data/custom_head'));
 			}
 
 		</script>
@@ -132,6 +146,9 @@
 			<button class="ui icon button" onclick="next('head')">
 				<i class="angle right icon"></i>
 			</button>
+			<div class = "ui primary button" onclick="exportHead()">
+				Export
+			</div>
 		</div>
 	</body>
 </html>
