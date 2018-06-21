@@ -5,6 +5,7 @@
 		<style>
 			body { margin: 0; }
 			canvas { width: 100%; height: 100% }
+			td{ width:33%; align-content: center; text-align: center;}
 		</style>
 	</head>
 	<body>
@@ -23,6 +24,10 @@
 			// and exported model directory
 			const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
 			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'];
+			var loading_bar, progress_label;
+			var model_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
+			var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i);
+			var current_rotation = 50, model = null, model_index = -1, texture_database = null, scene = new THREE.Scene(), screen_loaded = false;
 			
 			// set slide to rotate displayed model
 			window.onload = () => {
@@ -30,24 +35,31 @@
 				slider.oninput = function() {
 					current_rotation = this.value;
 				};
+				loading_bar = document.getElementById("loading-bar");
+				progress_label = document.getElementById('progress-label');
+				init();
 			};
 
 			// set up scene and rotation
-			var current_rotation = 50, model = null, model_index = -1, texture_database = null;
-			var scene = new THREE.Scene(), light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
+			function init(){
+			//var current_rotation = 50, model = null, model_index = -1, texture_database = null;
+			//var scene = new THREE.Scene(), 
+			var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
 			var renderer = new THREE.WebGLRenderer();
-			renderer.setSize( window.innerWidth, window.innerHeight - 70);
+			renderer.setSize( window.innerWidth, window.innerHeight);
 			document.body.appendChild( renderer.domElement );
 
 			// get paths to files. model_paths and material paths must be in same order
-			var model_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
-			var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i);
+			//var model_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
+			//var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i);
 
 			// load all textures based on materials
+			progress_label.innerHTML = 'Creating Texture Database';
 			create_texture_database(material_paths).then((db)=>{
 				texture_database = db;
 				next('head');
+				progress_label.innerHTML = 'Setting up scene and loading model';
 			});
 			
 			// start loading of first head
@@ -62,11 +74,12 @@
 					// if model is not null, get slider value, calculate radians of rotation
 					if(model != null)
 						model.setRotationFromAxisAngle(new THREE.Vector3(0,0,1), 2*3.14 * ((current_rotation - 50) / 100.0));
+					renderer.setSize(window.innerWidth, window.innerHeight); // TODO: check how inefficient this is
 					renderer.render(scene, camera);
 					startRendering();
 				}, DELAY);
 			})();
-
+			}
 			// change models
 			function set_model(new_model){
 				model = new_model.detail.loaderRootNode;
@@ -97,6 +110,7 @@
 					let p = load_asset(texture_database['model'][model_index][0], 'txt'), length = texture_database['model'][model_index].length;
 					for(let x = 1; x <= length; x++){
 						p = p.then((texture)=>{
+							loading_bar.style.width = 70 + length / x * 10 + '%'; 
 							model.children[x - 1].material = new THREE.MeshLambertMaterial({map: texture}); 
 							if(x < length)
 								return load_asset(texture_database['model'][model_index][x], 'txt');
@@ -108,8 +122,10 @@
 								{
 									p2 = p2.then(() =>{
 										model.children[x].material = new THREE.MeshBasicMaterial({transparent: true, opacity:0})
-										if(x == model.children.length - 1)
+										if(x == model.children.length - 1){
+											screenLoaded();
 											scene.add(model)
+										}
 										return Promise.resolve();
 									});
 								}
@@ -122,10 +138,23 @@
 					}
 					// the model didn't go through the hiding of additional features and thus was never added to the scene. So it gets added here
 					if(model.children.length <= 3)
+					{
+						screenLoaded();
 						scene.add(model);
+					}
 					});;
 
 			};
+
+			function screenLoaded(){
+				if(screen_loaded)
+					return;
+				document.getElementById('loading-bar').style.width = 100 + '%';
+				document.getElementById('loading-div').style.display = "none";
+				document.getElementById('camera-controls').hidden = false;
+				document.getElementById('part-controls').hidden = false;
+				screen_loaded = true;
+			}
 
 			function prev(type){
 				if(model_index > 0)
@@ -133,7 +162,8 @@
 				next(type);
 			}
 
-			function exportHead(){
+			function exportHead(button){
+				button.classList.add('loading');
 				// export the head performing sequential steps, hence all the promising
 				let re = /.*\/(.*)_.*\.obj/i
 				let model_name = model_paths[model_index].match(re)[1];
@@ -145,24 +175,91 @@
 					.then(() => copy(mtl_filepath, EXPORT_DIR + 'Data/custom_head/henry.mtl'))
 					.then(()=>zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['henry.mtl', 'henry.skin'], 'Objects/characters/humans/head'))
 					.then(() => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'))
-					.then(() => rmdir(EXPORT_DIR + 'Data/custom_head'));
+					.then(() => rmdir(EXPORT_DIR + 'Data/custom_head'))
+					.then(() => Promise.resolve(button.classList.remove('loading')))
+					.then(() => alert("exported to: " + EXPORT_DIR));
 			}
 
 		</script>
-		<div id="camera-controls" style="width:100%">
-			<input style="width:100%" type="range" min="1" max="100" value="50" class="slider" id="rotate-head">
+		<div id="camera-controls" style="width:100%" hidden="true">
+			<input style="width:100%; position: absolute; top: 95%" type="range" min="1" max="100" value="50" class="slider" id="rotate-head">
 		</div>
-		<div id="part-controls" style="width:100%; float: right;">
-			<button class="ui icon button" onclick="prev('head')">
-				<i class="angle left icon"></i>
-			</button>
-			Head
-			<button class="ui icon button" onclick="next('head')">
-				<i class="angle right icon"></i>
-			</button>
-			<div class = "ui primary button" onclick="exportHead()">
-				Export
-			</div>
+		<div id='loading-div' class="ui indicating progress" style="width:100%; position: absolute; top: 95%">
+			 <div id="loading-bar" class="bar" style="width:0%; position: absolute; top: 95%"></div>
+			 <div id='progress-label' class="label" style="color: white"></div>
+		</div>
+		<div hidden="true" id="part-controls" style="border-style: solid; border-color: orange; border-width: 2px; border-radius: 10px; background-color: white; width: 200px; position: absolute; top: 10px; right: 10px">
+			<table >
+				<tr>
+					<td>
+						<button class="ui icon button" onclick="prev('head')">
+							<i class="angle left icon"></i>
+						</button>
+					</td>
+					<td>
+						<div class="label">Head</div>
+					</td>
+					<td>
+						<button class="ui icon button" onclick="next('head')">
+							<i class="angle right icon"></i>
+						</button>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<button class="ui disabled icon button" onclick="">
+							<i class="angle left icon"></i>
+						</button>
+					</td>
+					<td>
+						<div class="label">Beard</div>
+					</td>
+					<td>
+						<button class="ui disabled icon button" onclick="">
+							<i class="angle right icon"></i>
+						</button>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<button class="ui disabled icon button" onclick="">
+							<i class="angle left icon"></i>
+						</button>
+					</td>
+					<td>
+						<div class="label">Hair</div>
+					</td>
+					<td>
+						<button class="ui disabled icon button" onclick="">
+							<i class="angle right icon"></i>
+						</button>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<button class="ui disabled icon button" onclick="">
+							<i class="angle left icon"></i>
+						</button>
+					</td>
+					<td>
+						<div class="label">Eyes</div>
+					</td>
+					<td>
+						<button class="ui disabled icon button" onclick="">
+							<i class="angle right icon"></i>
+						</button>
+					</td>
+				</tr>
+				<tr>
+					<td/>
+					<td>
+						<div class = "ui primary button" onclick="exportHead(this)">
+							Export
+						</div>
+					</td>
+					<td/>
+				</tr>
+			</table>
 		</div>
 	</body>
 </html>

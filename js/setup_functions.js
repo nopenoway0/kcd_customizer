@@ -37,7 +37,7 @@ function create_texture_database(filelist){
 			parser.parseString(data, (err, data)=>{
 				try{
 					console.log('extracting from: ' + filelist[x]);
-
+					loading_bar.style.width = ((filelist.length / x) * 90) + '%';
 					// extract list of submaterials of mtl
 					let materials = data["Material"]["SubMaterials"][0]["Material"];
 					for(let y = 0; y < materials.length; y++){
