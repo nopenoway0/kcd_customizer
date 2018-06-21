@@ -66,14 +66,6 @@
 				base_direction = model.getWorldDirection();
 			}
 
-			function set_material(model, material)
-			{
-				model.traverse(function(child) {
-				   	if (child instanceof THREE.Mesh)
-				        child.material = material;
-			    });
-			}
-
 			function next(type)
 			{
 				model_index = (model_index + 1) % model_paths.length;
@@ -86,7 +78,7 @@
 					function synchronous_load(counter, max)
 					{
 						new Promise((resolve, reject) =>{
-							load_asset(texture_database['model'][model_index][counter], 'texture').then(texture =>
+							load_asset(texture_database['model'][model_index][counter], 'txt').then(texture =>
 							{
 								if(counter >= max)
 									resolve(-1);

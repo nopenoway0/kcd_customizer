@@ -1,36 +1,52 @@
-var fs = require('fs-extra')
-var xml2js = require('xml2js')
-var THREE = require('three')
+const fs = require('fs-extra')
+const xml2js = require('xml2js')
+var THREE = require('three') // TODO: check if libraries already included
 require('./js/LoaderSupport.js')
 require('./js/OBJLoader2.js')
-var JSZip = require('jszip')
+const JSZip = require('jszip')
 
 function create_texture_database(filelist)
 {
 	return new Promise((resolve, reject) => {
-		let parser = new xml2js.Parser();
-		let re = /.*\/(.*)\..*$/i
+		let parser = new xml2js.Parser(), re = /.*\/(.*)\..*$/i;
+		/**
+		 * Set up model textures list. The different fields are for future features for example, swapping textures between heads
+		 * @model: these have the relevant diffuse textures for the corresponding model so that it is represented
+		 * properly in the preview window
+		 * @head: list of head textures
+		 * @eyes: list of eyes textures
+		 * etc...
+		 */
 		var model_textures = {'model':[], 'head':{}, 'eyes':{}, 'mouth':{}, 'beard':{}, 'hair':{}};
 		for(var x = 0; x < filelist.length; x++){
-			let data = fs.readFileSync(filelist[x]);
-			let mats = [];
+			let data = fs.readFileSync(filelist[x]), mats = [];
 			parser.parseString(data, (err, data)=>
 			{
 				try{
-				console.log('extracting from: ' + filelist[x]);
-				var materials = data["Material"]["SubMaterials"][0]["Material"];
-				for(var y = 0; y < materials.length; y++)
-				{
-					if(materials[y]['$'].Name == 'head' || materials[y]['$'].Name == 'eyes' || materials[y]['$'].Name == 'mouth' || materials[y]['$'].Name == 'beard' || materials[y]['$'].Name == 'hair')
+					console.log('extracting from: ' + filelist[x]);
+
+					// extract list of submaterials of mtl
+					let materials = data["Material"]["SubMaterials"][0]["Material"];
+					for(let y = 0; y < materials.length; y++)
 					{
-						mats.push('textures/' + materials[y]["Textures"][0]["Texture"][0]['$'].File.match(re)[1] + ".jpg");
-						model_textures[materials[y]['$'].Name]['textures/' + materials[y]["Textures"][0]["Texture"][0]['$'].File.match(re)[1] + ".jpg"] = true;
+						/**
+						 * @texture_type: extract the category of texture from the xml. then check if it matches, head, eyes, etc.
+						 * @img_name: The mtl file contains paths to the textures. However, the paths it contains are not the ones that are valid
+						 * for renderingin KCD Custom. Instead, extract the just the name of the image, and point it to the converted textures
+						 * located in textures/
+						 */
+						let texture_type = materials[y]['$'].Name, img_name = materials[y]["Textures"][0]["Texture"][0]['$'].File.match(re)[1];
+						if(texture_type == 'head' || texture_type == 'eyes' || texture_type == 'mouth' || texture_type == 'beard' || texture_type == 'hair')
+						{
+							mats.push('textures/' + img_name  + ".jpg");
+							model_textures[texture_type]['textures/' + img_name + ".jpg"] = true;
+						}
 					}
+				} catch(err){
+					console.log(err);
 				}
-				} catch(err)
-				{
-					return;
-				}
+				// push our list of materials into our overarching models list.
+				// TODO: increase robustness in case the loading order of materials doesn't match the loading order of models
 				model_textures['model'].push(mats);	
 			});
 		}
@@ -38,39 +54,18 @@ function create_texture_database(filelist)
 	});
 }
 
-function load_model(scene, materials = "henry/henry.mtl", model_name = "henry_lod1.obj", texture_name = null, name = "Henry")
-{
-	return new Promise((sucess, failuer) =>{
-	let obj_loader = new THREE.OBJLoader2(manager);
-	obj_loader.setModelName("Henry")
-	var model;
-	let mtl_loader = new THREE.MTLLoader()
-	mtl_loader.load(materials, (mtl) => {
-			obj_loader.setMaterials(mtl);
-			obj_loader.load(model_name, (object) => {
-			model = object.detail.loaderRootNode;
-			base_direction = model.getWorldDirection();
-			if(texture_name != null)
-			{
-				let text_loader = new THREE.TGALoader();
-				text_loader.load(texture_name, (texture) =>{
-					var material = new THREE.MeshPhongMaterial({map: texture});
-					model.traverse(function(child) {
-				   		if (child instanceof THREE.Mesh)
-				        	child.material = material;
-			    	});
-				});
-			}
-			scene.add(model);
-			sucess(model);
-		}, null, null)}, null, null, null);});
-}
-
+/**
+ * Takes a directory, regular expression, whether or not to include the path in the output of strings.
+ * The goal of this function is to list files in a directory corresponding to specific criteria
+ * @param  {[type]}  directory    directory to scan for matching files
+ * @param  {[type]}  re           regular expression to match with filenames
+ * @param  {Boolean} include_path if true, relative path will be appended. default is true
+ * @return {[type]}               returns of list of strings of the files in the directory that match the regular expression
+ */
 function get_file_list(directory, re, include_path = true)
 {
-	let files = fs.readdirSync(directory);
-	var relevant_files = [];
-	for(var x = 0; x < files.length; x++)
+	let files = fs.readdirSync(directory), relevant_files = [];
+	for(let x = 0; x < files.length; x++)
 	{
 		if(files[x].match(re) != null)
 		{
@@ -82,32 +77,26 @@ function get_file_list(directory, re, include_path = true)
 }
 
 function load_asset(filename, type = 'obj', params = null){
+	const loader_type = {'obj': THREE.OBJLoader2, 'mtl': THREE.MTLLoader, 'txt': THREE.TextureLoader};
 	return new Promise((resolve, reject) => {
-	let loader = null;
-	if(type == 'obj')
-	{
-		loader = new THREE.OBJLoader2()
-		if(params != null)
-		{
-			console.log("set params");
-			loader.setMaterials(params);
-		}
-	}
-	else if(type == 'mtl')
-		loader = new THREE.MTLLoader();
-	else
-		loader = new THREE.TextureLoader();
+		let loader = null;
+		if(type == 'obj')
+			loader = new THREE.OBJLoader2()
+		else if(type == 'mtl')
+			loader = new THREE.MTLLoader();
+		else
+			loader = new THREE.TextureLoader();
 
-	loader.load(filename, (object) =>
-	{
-		console.log("successfully loaded " + filename);
-		resolve(object);
-	}, null, (err)=>
-	{
-		console.log("loading " + filename + " FAILED: ");
-		console.log(err);
-		reject(err);
-	});
+		loader.load(filename, (object) =>
+		{
+			console.log("successfully loaded " + filename);
+			resolve(object);
+		}, null, (err)=>
+		{
+			console.log("loading " + filename + " FAILED: ");
+			console.log(err);
+			reject(err);
+		});
 	});
 }
 
