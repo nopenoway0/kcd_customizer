@@ -163,3 +163,8 @@ function zipFolder(dir, name, files, path = "contents"){
 		}));
 	});
 }
+
+function exists(file)
+{
+	return fs.existsSync(file);
+}

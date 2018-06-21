@@ -47,10 +47,10 @@
 			// load all textures based on materials
 			create_texture_database(material_paths).then((db)=>{
 				texture_database = db;
+				next('head');
 			});
 			
 			// start loading of first head
-			next('head');
 
 			// set up scene with lighting and camera
 			scene.add( light );
@@ -75,10 +75,17 @@
 			function next(type){
 				model_index = (model_index + 1) % model_paths.length;
 				console.log('switching to ' + model_paths[model_index]);
+				// check if valid textures are appropriate, if not skip until next a model with appropriate textures appears
+				if(!exists(texture_database['model'][model_index][0]))
+				{
+					next(type);
+					return;
+				}
+				
 				scene.remove(model);
 				load_asset(model_paths[model_index]).then((result) =>{
-					set_model(result);
-					scene.add(model);
+					set_model(result); 
+					scene.add(model); // TODO: wait until model is complete laoded and all textures are as well before showing(adding to scene)
 					console.log("loading following textures:" + texture_database['model'][model_index]);
 					
 					/**
@@ -95,6 +102,7 @@
 							if(x < length)
 								return load_asset(texture_database['model'][model_index][x], 'txt');
 							else
+								// hide beard and hair and other features
 								for(let x = 3; x < model.children.length; x++)
 									model.children[x].material = new THREE.MeshBasicMaterial({transparent: true, opacity:0});
 						},(err)=>{
