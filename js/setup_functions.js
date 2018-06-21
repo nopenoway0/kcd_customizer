@@ -99,9 +99,7 @@ function load_asset(filename, type = 'obj'){
 			console.log("successfully loaded " + filename);
 			resolve(object);
 		}, null, (err)=>{
-			console.log("loading " + filename + " FAILED: ");
-			console.log(err);
-			reject(err);
+			reject("loading " + filename + " FAILED: " + err);
 		});
 	});
 }

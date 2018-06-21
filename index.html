@@ -94,9 +94,20 @@
 							model.children[x - 1].material = new THREE.MeshLambertMaterial({map: texture}); 
 							if(x < length)
 								return load_asset(texture_database['model'][model_index][x], 'txt');
+							else
+								for(let x = 3; x < model.children.length; x++)
+									model.children[x].material = new THREE.MeshBasicMaterial({transparent: true, opacity:0});
+						},(err)=>{
+							console.log(err);
+							if(x < length)
+								return load_asset(texture_database['model'][model_index][x], 'txt');
 						});
 					}
-				});
+					// set all things not eyes, mouth or face to transparent
+						/*for(let x = 3; x < model.children.length; x++)
+							model.children[x].material = new THREE.MeshBasicMaterial({transparent: true, opacity:0});*/
+					});;
+
 			};
 
 			function prev(type){
