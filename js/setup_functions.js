@@ -5,6 +5,21 @@ require('./js/LoaderSupport.js')
 require('./js/OBJLoader2.js')
 const JSZip = require('jszip')
 
+// load configuration file, or create a default one
+function config(){
+	if(fs.existsSync(CONFIG_PATH)){
+		let data = JSON.parse(fs.readFileSync(CONFIG_PATH));
+		return data;
+	}
+	else{
+		let data = {'SKIN_MODEL_PATH': 'materials/', 'FPS': 30,
+					 'EXPORT_DIR': 'exported/kcd_custom_head/', 'OBJ_MODEL_PATH': 'models/',
+					 'MATERIAL_PATH': 'materials/'};
+		fs.writeFileSync('config.json', JSON.stringify(data));
+		return data;
+	}
+}
+
 function create_texture_database(filelist){
 	return new Promise((resolve, reject) => {
 		let parser = new xml2js.Parser(), re = /.*\/(.*)\..*$/i;
@@ -146,7 +161,6 @@ function zipFolder(dir, name, files, path = "contents"){
 			folder.file(files[x], contents, {binary:true});
 		}
 		res(zip.generateAsync({type: "uint8array"}).then((data)=>{
-			console.log('trying to write to file');
 			fs.writeFileSync(name, data);
 		}));
 	});

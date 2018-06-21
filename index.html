@@ -17,9 +17,12 @@
 		<script src="js/setup_functions.js"></script>
 		<script src="semantic/semantic.js"></script>
 		<script>
+			const CONFIG_PATH = "config.json";
+			let configuration = config();
 			// set where to find default game models and mats, set fps, and necessary delay to achieve delay
 			// and exported model directory
-			const SKIN_MODEL_PATH = "materials/", FPS = 30, DELAY = 1000 / FPS, EXPORT_DIR = 'exported/kcd_custom_head/';
+			const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
+			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'];
 			
 			// set slide to rotate displayed model
 			window.onload = () => {
@@ -38,8 +41,8 @@
 			document.body.appendChild( renderer.domElement );
 
 			// get paths to files. model_paths and material paths must be in same order
-			var model_paths = get_file_list('models/', /.*\.obj/i);
-			var material_paths = get_file_list('materials/', /.*\.mtl/i);
+			var model_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
+			var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i);
 
 			// load all textures based on materials
 			create_texture_database(material_paths).then((db)=>{
@@ -77,31 +80,22 @@
 					set_model(result);
 					scene.add(model);
 					console.log("loading following textures:" + texture_database['model'][model_index]);
-					function synchronous_load(counter, max)
-					{
-						new Promise((resolve, reject) =>{
-							load_asset(texture_database['model'][model_index][counter], 'txt').then(texture =>
-							{
-								if(counter >= max)
-									resolve(-1);
-								// set face texture
-								else{
-									model.children[counter].material = new THREE.MeshLambertMaterial({map: texture}); 
-									resolve(counter + 1);
-								}
-							}, err =>{
-								if(counter >= max)
-									resolve(-1);
-								else
-									resolve(counter + 1);
-							});
-						}).then((count)=>
-						{
-							if(count >= 0)
-								synchronous_load(count, max);
+					
+					/**
+					 * Sequentially load all textures in the corresponding index relevant to the current model. load_asset returns
+					 * a promise making sure each asset is loaded sequentially. This is necessary because of the order of the meshes.
+					 * Meshes in each model are broke into [0]head, [1]eyes, [2] mouth, [3]hair(optional)
+					 * , [3 or 4 depending on hair] beard (optional). Thus, each texture must be loaded in order to be peroperly applied
+					 * to the correct mesh.
+					 */
+					let p = load_asset(texture_database['model'][model_index][0], 'txt'), length = texture_database['model'][model_index].length;
+					for(let x = 1; x <= length; x++){
+						p = p.then((texture)=>{
+							model.children[x - 1].material = new THREE.MeshLambertMaterial({map: texture}); 
+							if(x < length)
+								return load_asset(texture_database['model'][model_index][x], 'txt');
 						});
-					}				
-					synchronous_load(0, texture_database['model'][model_index].length);
+					}
 				});
 			};
 
