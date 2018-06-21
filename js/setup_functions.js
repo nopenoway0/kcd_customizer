@@ -37,7 +37,7 @@ function create_texture_database(filelist){
 			parser.parseString(data, (err, data)=>{
 				try{
 					console.log('extracting from: ' + filelist[x]);
-
+					loading_bar.style.width = ((filelist.length / x) * 90) + '%';
 					// extract list of submaterials of mtl
 					let materials = data["Material"]["SubMaterials"][0]["Material"];
 					for(let y = 0; y < materials.length; y++){
@@ -99,9 +99,7 @@ function load_asset(filename, type = 'obj'){
 			console.log("successfully loaded " + filename);
 			resolve(object);
 		}, null, (err)=>{
-			console.log("loading " + filename + " FAILED: ");
-			console.log(err);
-			reject(err);
+			reject("loading " + filename + " FAILED: " + err);
 		});
 	});
 }
@@ -164,4 +162,9 @@ function zipFolder(dir, name, files, path = "contents"){
 			fs.writeFileSync(name, data);
 		}));
 	});
+}
+
+function exists(file)
+{
+	return fs.existsSync(file);
 }
