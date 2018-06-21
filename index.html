@@ -81,11 +81,10 @@
 					next(type);
 					return;
 				}
-				
+
 				scene.remove(model);
 				load_asset(model_paths[model_index]).then((result) =>{
 					set_model(result); 
-					scene.add(model); // TODO: wait until model is complete laoded and all textures are as well before showing(adding to scene)
 					console.log("loading following textures:" + texture_database['model'][model_index]);
 					
 					/**
@@ -102,18 +101,28 @@
 							if(x < length)
 								return load_asset(texture_database['model'][model_index][x], 'txt');
 							else
+							{
 								// hide beard and hair and other features
+								var p2 = Promise.resolve();
 								for(let x = 3; x < model.children.length; x++)
-									model.children[x].material = new THREE.MeshBasicMaterial({transparent: true, opacity:0});
+								{
+									p2 = p2.then(() =>{
+										model.children[x].material = new THREE.MeshBasicMaterial({transparent: true, opacity:0})
+										if(x == model.children.length - 1)
+											scene.add(model)
+										return Promise.resolve();
+									});
+								}
+							}
 						},(err)=>{
 							console.log(err);
 							if(x < length)
 								return load_asset(texture_database['model'][model_index][x], 'txt');
 						});
 					}
-					// set all things not eyes, mouth or face to transparent
-						/*for(let x = 3; x < model.children.length; x++)
-							model.children[x].material = new THREE.MeshBasicMaterial({transparent: true, opacity:0});*/
+					// the model didn't go through the hiding of additional features and thus was never added to the scene. So it gets added here
+					if(model.children.length <= 3)
+						scene.add(model);
 					});;
 
 			};
@@ -125,7 +134,7 @@
 			}
 
 			function exportHead(){
-				// create strings to show where would export
+				// export the head performing sequential steps, hence all the promising
 				let re = /.*\/(.*)_.*\.obj/i
 				let model_name = model_paths[model_index].match(re)[1];
 				let model_filepath = SKIN_MODEL_PATH + model_name + ".skin", mtl_filepath = SKIN_MODEL_PATH + model_name + ".mtl";
