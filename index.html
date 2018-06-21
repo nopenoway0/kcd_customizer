@@ -23,7 +23,7 @@
 			// set where to find default game models and mats, set fps, and necessary delay to achieve delay
 			// and exported model directory
 			const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
-			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'];
+			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'];
 			var loading_bar, progress_label;
 			var model_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
 			var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i);
@@ -89,7 +89,7 @@
 				model_index = (model_index + 1) % model_paths.length;
 				console.log('switching to ' + model_paths[model_index]);
 				// check if valid textures are appropriate, if not skip until next a model with appropriate textures appears
-				if(!exists(texture_database['model'][model_index][0]))
+				if(SHOW_TEXTURLESS_HEADS || !exists(texture_database['model'][model_index][0]))
 				{
 					next(type);
 					return;
@@ -158,8 +158,18 @@
 
 			function prev(type){
 				if(model_index > 0)
-					model_index -= 2;
-				next(type);
+					model_index -= 1;
+				else if(model_index == 0)
+					model_index = model_paths.length;
+				if(SHOW_TEXTURLESS_HEADS || !exists(texture_database['model'][model_index][0]))
+				{
+					prev(type);
+				}
+				else
+				{
+					model_index -= 1;
+					next(type);
+				}
 			}
 
 			function exportHead(button){
