@@ -5,8 +5,7 @@ require('./js/LoaderSupport.js')
 require('./js/OBJLoader2.js')
 const JSZip = require('jszip')
 
-function create_texture_database(filelist)
-{
+function create_texture_database(filelist){
 	return new Promise((resolve, reject) => {
 		let parser = new xml2js.Parser(), re = /.*\/(.*)\..*$/i;
 		/**
@@ -20,15 +19,13 @@ function create_texture_database(filelist)
 		var model_textures = {'model':[], 'head':{}, 'eyes':{}, 'mouth':{}, 'beard':{}, 'hair':{}};
 		for(var x = 0; x < filelist.length; x++){
 			let data = fs.readFileSync(filelist[x]), mats = [];
-			parser.parseString(data, (err, data)=>
-			{
+			parser.parseString(data, (err, data)=>{
 				try{
 					console.log('extracting from: ' + filelist[x]);
 
 					// extract list of submaterials of mtl
 					let materials = data["Material"]["SubMaterials"][0]["Material"];
-					for(let y = 0; y < materials.length; y++)
-					{
+					for(let y = 0; y < materials.length; y++){
 						/**
 						 * @texture_type: extract the category of texture from the xml. then check if it matches, head, eyes, etc.
 						 * @img_name: The mtl file contains paths to the textures. However, the paths it contains are not the ones that are valid
@@ -36,8 +33,7 @@ function create_texture_database(filelist)
 						 * located in textures/
 						 */
 						let texture_type = materials[y]['$'].Name, img_name = materials[y]["Textures"][0]["Texture"][0]['$'].File.match(re)[1];
-						if(texture_type == 'head' || texture_type == 'eyes' || texture_type == 'mouth' || texture_type == 'beard' || texture_type == 'hair')
-						{
+						if(texture_type == 'head' || texture_type == 'eyes' || texture_type == 'mouth' || texture_type == 'beard' || texture_type == 'hair'){
 							mats.push('textures/' + img_name  + ".jpg");
 							model_textures[texture_type]['textures/' + img_name + ".jpg"] = true;
 						}
@@ -62,13 +58,10 @@ function create_texture_database(filelist)
  * @param  {Boolean} include_path if true, relative path will be appended. default is true
  * @return {[type]}               returns of list of strings of the files in the directory that match the regular expression
  */
-function get_file_list(directory, re, include_path = true)
-{
+function get_file_list(directory, re, include_path = true){
 	let files = fs.readdirSync(directory), relevant_files = [];
-	for(let x = 0; x < files.length; x++)
-	{
-		if(files[x].match(re) != null)
-		{
+	for(let x = 0; x < files.length; x++){
+		if(files[x].match(re) != null){
 			let tmp = (include_path) ? directory + files[x] : files[x];
 			relevant_files.push(tmp);
 		}
@@ -76,23 +69,21 @@ function get_file_list(directory, re, include_path = true)
 	return relevant_files;
 }
 
-function load_asset(filename, type = 'obj', params = null){
+/**
+ * Function loads assets. Resolve value is the object that has been loaded.
+ * Currently can load: OBJ, MTL, and Textures (jpg, png)
+ * @param  {[String]} 		 filename name of file to load
+ * @param  {String} type     type of loader to use on this file (obj, mtl, txt)
+ * @return {[type]}          3DObject - may be Model, texture or material
+ */
+function load_asset(filename, type = 'obj'){
 	const loader_type = {'obj': THREE.OBJLoader2, 'mtl': THREE.MTLLoader, 'txt': THREE.TextureLoader};
 	return new Promise((resolve, reject) => {
-		let loader = null;
-		if(type == 'obj')
-			loader = new THREE.OBJLoader2()
-		else if(type == 'mtl')
-			loader = new THREE.MTLLoader();
-		else
-			loader = new THREE.TextureLoader();
-
-		loader.load(filename, (object) =>
-		{
+		let loader = new loader_type[type]();
+		loader.load(filename, (object) =>{
 			console.log("successfully loaded " + filename);
 			resolve(object);
-		}, null, (err)=>
-		{
+		}, null, (err)=>{
 			console.log("loading " + filename + " FAILED: ");
 			console.log(err);
 			reject(err);
@@ -100,8 +91,7 @@ function load_asset(filename, type = 'obj', params = null){
 	});
 }
 
-function copy(file1, location)
-{
+function copy(file1, location){
 	return new Promise((res, rej) =>{
 		fs.copy(file1, location, ()=>{
 			res();
@@ -109,11 +99,9 @@ function copy(file1, location)
 	});
 }
 
-function mkdir(dir)
-{
+function mkdir(dir){
 	return new Promise((res, rej) =>{
-		if(!fs.exists(dir))
-		{
+		if(!fs.exists(dir)){
 			fs.mkdir(dir, (err)=>{
 					if(err != null)
 						rej();
@@ -125,8 +113,7 @@ function mkdir(dir)
 	});
 }
 
-function rename(old_path, new_path)
-{
+function rename(old_path, new_path){
 	return new Promise((res, rej) => {
 		if(fs.exists(old_path)){
 			fs.rename(old_path, new_path, (err)=>{
@@ -139,8 +126,7 @@ function rename(old_path, new_path)
 	});
 }
 
-function rmdir(dir)
-{
+function rmdir(dir){
 	return new Promise((res, rej) =>{
 	if(fs.exists(dir))
 		fs.remove(dir, ()=>{
@@ -150,19 +136,18 @@ function rmdir(dir)
 	})
 }
 
-function zipFolder(dir, name, files, path = "contents")
-{
+function zipFolder(dir, name, files, path = "contents"){
 	return new Promise((res)=>{
-	console.log(files);
-	let zip = new JSZip();
-	let folder = zip.folder(path);
-	for(let x = 0; x < files.length; x++){
-		let contents = fs.readFileSync(dir + files[x])
-		folder.file(files[x], contents, {binary:true});
-	}
-	res(zip.generateAsync({type: "uint8array"}).then((data)=>{
-		console.log('trying to write to file');
-		fs.writeFileSync(name, data);
-	}));
+		console.log(files);
+		let zip = new JSZip();
+		let folder = zip.folder(path);
+		for(let x = 0; x < files.length; x++){
+			let contents = fs.readFileSync(dir + files[x])
+			folder.file(files[x], contents, {binary:true});
+		}
+		res(zip.generateAsync({type: "uint8array"}).then((data)=>{
+			console.log('trying to write to file');
+			fs.writeFileSync(name, data);
+		}));
 	});
 }

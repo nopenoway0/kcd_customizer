@@ -17,11 +17,22 @@
 		<script src="js/setup_functions.js"></script>
 		<script src="semantic/semantic.js"></script>
 		<script>
-			window.onload = setSlider;
-			var current_rotation = 50, base_direction = null, model = null, model_index = -1, texture_database = null;
-			var scene = new THREE.Scene(), skin_model_path = "materials/";
+			// set where to find default game models and mats, set fps, and necessary delay to achieve delay
+			// and exported model directory
+			const SKIN_MODEL_PATH = "materials/", FPS = 30, DELAY = 1000 / FPS, EXPORT_DIR = 'exported/kcd_custom_head/';
+			
+			// set slide to rotate displayed model
+			window.onload = () => {
+				let slider = document.getElementById("rotate-head");
+				slider.oninput = function() {
+					current_rotation = this.value;
+				};
+			};
+
+			// set up scene and rotation
+			var current_rotation = 50, model = null, model_index = -1, texture_database = null;
+			var scene = new THREE.Scene(), light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
 			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
-			var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
 			var renderer = new THREE.WebGLRenderer();
 			renderer.setSize( window.innerWidth, window.innerHeight - 70);
 			document.body.appendChild( renderer.domElement );
@@ -35,39 +46,30 @@
 				texture_database = db;
 			});
 			
-			//var texture_paths = get_file_list('textures/', /.*\.jpg/i);
-
+			// start loading of first head
 			next('head');
 
 			// set up scene with lighting and camera
 			scene.add( light );
 			camera.position.y = .28, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
 
-			function setSlider() 
-			{
-				var slider = document.getElementById("rotate-head");
-				slider.oninput = function() {
-					current_rotation = this.value;
-				};
-			}
-
+			// start rendering at a set delay speed
 			(function startRendering(){
 				setTimeout(() => {
+					// if model is not null, get slider value, calculate radians of rotation
 					if(model != null)
 						model.setRotationFromAxisAngle(new THREE.Vector3(0,0,1), 2*3.14 * ((current_rotation - 50) / 100.0));
 					renderer.render(scene, camera);
 					startRendering();
-				}, 33);
+				}, DELAY);
 			})();
 
-			function set_model(result)
-			{
-				model = result.detail.loaderRootNode;
-				base_direction = model.getWorldDirection();
+			// change models
+			function set_model(new_model){
+				model = new_model.detail.loaderRootNode;
 			}
 
-			function next(type)
-			{
+			function next(type){
 				model_index = (model_index + 1) % model_paths.length;
 				console.log('switching to ' + model_paths[model_index]);
 				scene.remove(model);
@@ -103,27 +105,25 @@
 				});
 			};
 
-			function prev(type)
-			{
+			function prev(type){
 				if(model_index > 0)
 					model_index -= 2;
 				next(type);
 			}
 
-			function exportHead()
-			{
+			function exportHead(){
 				// create strings to show where would export
 				let re = /.*\/(.*)_.*\.obj/i
 				let model_name = model_paths[model_index].match(re)[1];
-				let model_filepath = skin_model_path + model_name + ".skin", mtl_filepath = skin_model_path + model_name + ".mtl";
-				rmdir('exported/kcd_custom_head/Data/custom_head')
-					.then(() =>rmdir('exported/kcd_custom_head/Data/__fastload/custom_head'))
-					.catch(() => mkdir('exported/kcd_custom_head/Data/custom_head'))
-					.then(() => copy(model_filepath, 'exported/kcd_custom_head/Data/custom_head/henry.skin'))
-					.then(() => copy(mtl_filepath, 'exported/kcd_custom_head/Data/custom_head/henry.mtl'))
-					.then(()=>zipFolder('exported/kcd_custom_head/Data/custom_head/', 'exported/kcd_custom_head/Data/kcd_custom_head.pak', ['henry.mtl', 'henry.skin'], 'Objects/characters/humans/head'))
-					.then(() => copy('exported/kcd_custom_head/Data/kcd_custom_head.pak', 'exported/kcd_custom_head/Data/__fastload/kcd_custom_head.pak'))
-					.then(() => rmdir('exported/kcd_custom_head/Data/custom_head'));
+				let model_filepath = SKIN_MODEL_PATH + model_name + ".skin", mtl_filepath = SKIN_MODEL_PATH + model_name + ".mtl";
+				rmdir(EXPORT_DIR + 'Data/custom_head')
+					.then(() =>rmdir(EXPORT_DIR + 'Data/__fastload/custom_head'))
+					.catch(() => mkdir(EXPORT_DIR + 'Data/custom_head'))
+					.then(() => copy(model_filepath, EXPORT_DIR + 'Data/custom_head/henry.skin'))
+					.then(() => copy(mtl_filepath, EXPORT_DIR + 'Data/custom_head/henry.mtl'))
+					.then(()=>zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['henry.mtl', 'henry.skin'], 'Objects/characters/humans/head'))
+					.then(() => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'))
+					.then(() => rmdir(EXPORT_DIR + 'Data/custom_head'));
 			}
 
 		</script>
