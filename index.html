@@ -204,8 +204,7 @@
 				const HEAD_LOCATION = 'Objects/characters/humans/head/'
 				button.classList.add('loading');
 				// export the head performing sequential steps, hence all the promising
-				let re = /.*\/(.*)_.*\.obj/i
-				let model_name = model_paths[model_index].match(re)[1];
+				let model_name = model_list[model_index];
 				let model_filepath = SKIN_MODEL_PATH + model_name + ".skin", mtl_filepath = SKIN_MODEL_PATH + model_name + ".mtl";
 				let chosen_pak = "Heads.pak";
 				((pak) =>{
