@@ -30,8 +30,8 @@
 				document.getElementById("root-browser").click();
 			}
 			function process_dir(event){
-				let re = /file:\/\/\/(.*)\/.*$/i;
-				document.getElementById(("root-dir")).value = event.path[0].baseURI.match(re)[1] + '\/';
+				let re = /(.*\/).*$/i;
+				document.getElementById(("root-dir")).value = document.getElementById('root-browser').files[0].path.replace(/\\/g, '/').match(re)[1];
 			}
 			function store_directory(){
 				ipcRenderer.send('directory_set', document.getElementById(("root-dir")).value);
