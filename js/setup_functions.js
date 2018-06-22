@@ -180,9 +180,8 @@ function extractFrom(archive_path, file_path, new_file)
 		let zip_stream = new StreamZip({file: archive_path, store_entries: true});
 		zip_stream.on('ready', () =>{
 			zip_stream.extract(file_path, new_file, err => {
-			    console.log(err ? 'Extract error' : 'Extracted');
-			    zip_stream.close();
-			    res();
+				zip_stream.close();
+			    err ? rej('Extract error') : res('Extracted');
 			 });
 		});
 	});
