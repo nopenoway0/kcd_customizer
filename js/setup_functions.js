@@ -4,7 +4,7 @@ var THREE = require('three') // TODO: check if libraries already included
 require('./js/LoaderSupport.js')
 require('./js/OBJLoader2.js')
 const JSZip = require('jszip')
-
+const StreamZip = require('node-stream-zip')
 // load configuration file, or create a default one
 function config(){
 	if(fs.existsSync(CONFIG_PATH)){
@@ -14,10 +14,15 @@ function config(){
 	else{
 		let data = {'SKIN_MODEL_PATH': 'materials/', 'FPS': 30,
 					 'EXPORT_DIR': 'exported/kcd_custom_head/', 'OBJ_MODEL_PATH': 'models/',
-					 'MATERIAL_PATH': 'materials/'};
+					 'MATERIAL_PATH': 'materials/', 'SHOW_TEXTURLESS_HEADS': false, 'ROOT_PATH': ""};
 		fs.writeFileSync('config.json', JSON.stringify(data));
 		return data;
 	}
+}
+
+function writeAsync(filename, data)
+{
+	fs.writeFile(filename, data);
 }
 
 function create_texture_database(filelist){
@@ -114,15 +119,11 @@ function copy(file1, location){
 
 function mkdir(dir){
 	return new Promise((res, rej) =>{
-		if(!fs.exists(dir)){
-			fs.mkdir(dir, (err)=>{
-					if(err != null)
-						rej();
-					res();
-			});
-		}
-		else
-			rej(dir + ' exists!');
+		fs.ensureDir(dir, (err)=>{
+				if(err != null)
+					rej();
+				res();
+		});
 	});
 }
 
@@ -146,6 +147,8 @@ function rmdir(dir){
 			console.log(dir + " removed");
 			res();
 		});
+	else
+		res();
 	})
 }
 
@@ -158,13 +161,28 @@ function zipFolder(dir, name, files, path = "contents"){
 			let contents = fs.readFileSync(dir + files[x])
 			folder.file(files[x], contents, {binary:true});
 		}
-		res(zip.generateAsync({type: "uint8array"}).then((data)=>{
+		zip.generateAsync({type: "uint8array"}).then((data)=>{
 			fs.writeFileSync(name, data);
-		}));
+			res();
+		});
 	});
 }
 
 function exists(file)
 {
 	return fs.existsSync(file);
+}
+
+function extractFrom(archive_path, file_path, new_file)
+{
+	return new Promise((res) => {
+		console.log('exporting to ' + new_file);
+		let zip_stream = new StreamZip({file: archive_path, store_entries: true});
+		zip_stream.on('ready', () =>{
+			zip_stream.extract(file_path, new_file, err => {
+				zip_stream.close();
+			    err ? rej('Extract error') : res('Extracted');
+			 });
+		});
+	});
 }
