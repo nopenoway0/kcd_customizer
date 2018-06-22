@@ -25,6 +25,27 @@ function writeAsync(filename, data)
 	fs.writeFile(filename, data);
 }
 
+function create_mtl_database(table_location)
+{
+	return new Promise((res, rej) =>{
+		let parser = new xml2js.Parser();
+		let data = fs.readFileSync(table_location);
+		var mtl_list = [], models = [];
+		parser.parseString(data, (err, data) =>{
+			// add error check?
+			let relevant_data = data.database.table[0]['rows'][0].row;
+			for(let x = 0; x < relevant_data.length; x++)
+			{
+				let model_name = relevant_data[x]['$']['model'], mat_location = MATERIAL_PATH + relevant_data[x]['$'].material + '.mtl';
+				let map_mat_mod = {model: model_name, material_path: mat_location};
+				models.push(model_name);
+				mtl_list.push(map_mat_mod);
+			}
+			res([mtl_list, models]);
+		});
+	});
+}
+
 function create_texture_database(filelist){
 	return new Promise((resolve, reject) => {
 		let parser = new xml2js.Parser(), re = /.*\/(.*)\..*$/i;
@@ -36,35 +57,42 @@ function create_texture_database(filelist){
 		 * @eyes: list of eyes textures
 		 * etc...
 		 */
-		var model_textures = {'model':[], 'head':{}, 'eyes':{}, 'mouth':{}, 'beard':{}, 'hair':{}};
+		var model_textures = {'model':{}, 'head':{}, 'eyes':{}, 'mouth':{}, 'beard':{}, 'hair':{}};
 		for(var x = 0; x < filelist.length; x++){
-			let data = fs.readFileSync(filelist[x]), mats = [];
-			parser.parseString(data, (err, data)=>{
-				try{
-					console.log('extracting from: ' + filelist[x]);
-					loading_bar.style.width = ((filelist.length / x) * 90) + '%';
-					// extract list of submaterials of mtl
-					let materials = data["Material"]["SubMaterials"][0]["Material"];
-					for(let y = 0; y < materials.length; y++){
-						/**
-						 * @texture_type: extract the category of texture from the xml. then check if it matches, head, eyes, etc.
-						 * @img_name: The mtl file contains paths to the textures. However, the paths it contains are not the ones that are valid
-						 * for renderingin KCD Custom. Instead, extract the just the name of the image, and point it to the converted textures
-						 * located in textures/
-						 */
-						let texture_type = materials[y]['$'].Name, img_name = materials[y]["Textures"][0]["Texture"][0]['$'].File.match(re)[1];
-						if(texture_type == 'head' || texture_type == 'eyes' || texture_type == 'mouth' || texture_type == 'beard' || texture_type == 'hair'){
-							mats.push('textures/' + img_name  + ".jpg");
-							model_textures[texture_type]['textures/' + img_name + ".jpg"] = true;
+			let parse = true, data = null;
+			try{
+				data = fs.readFileSync(filelist[x].material_path), mats = [];
+			}catch (err)
+			{
+				parse = false;
+			}
+			if(parse){
+				parser.parseString(data, (err, data)=>{
+					try{
+						console.log('extracting from: ' + filelist[x].material_path);
+						loading_bar.style.width = ((filelist.length / x) * 90) + '%';
+						// extract list of submaterials of mtl
+						let materials = data["Material"]["SubMaterials"][0]["Material"];
+						for(let y = 0; y < materials.length; y++){
+							/**
+							 * @texture_type: extract the category of texture from the xml. then check if it matches, head, eyes, etc.
+							 * @img_name: The mtl file contains paths to the textures. However, the paths it contains are not the ones that are valid
+							 * for renderingin KCD Custom. Instead, extract the just the name of the image, and point it to the converted textures
+							 * located in textures/
+							 */
+							let texture_type = materials[y]['$'].Name, img_name = materials[y]["Textures"][0]["Texture"][0]['$'].File.match(re)[1];
+							if(texture_type == 'head' || texture_type == 'eyes' || texture_type == 'mouth' || texture_type == 'beard' || texture_type == 'hair'){
+								mats.push('textures/' + img_name  + ".jpg");
+								model_textures[texture_type]['textures/' + img_name + ".jpg"] = true;
+							}
 						}
+					} catch(err){
+						console.log(err);
 					}
-				} catch(err){
-					console.log(err);
-				}
-				// push our list of materials into our overarching models list.
-				// TODO: increase robustness in case the loading order of materials doesn't match the loading order of models
-				model_textures['model'].push(mats);	
-			});
+					// push our list of materials into our overarching models list.
+					// TODO: increase robustness in case the loading order of materials doesn't match the loading order of models
+					model_textures['model'][filelist[x].model] = mats;	
+			});}
 		}
 		resolve(model_textures);
 	});
@@ -99,6 +127,8 @@ function get_file_list(directory, re, include_path = true){
 function load_asset(filename, type = 'obj'){
 	const loader_type = {'obj': THREE.OBJLoader2, 'mtl': THREE.MTLLoader, 'txt': THREE.TextureLoader};
 	return new Promise((resolve, reject) => {
+		if(!exists(filename))
+			reject("file: " + filename + " does not exists");
 		let loader = new loader_type[type]();
 		loader.load(filename, (object) =>{
 			console.log("successfully loaded " + filename);
