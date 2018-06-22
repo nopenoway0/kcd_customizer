@@ -14,10 +14,15 @@ function config(){
 	else{
 		let data = {'SKIN_MODEL_PATH': 'materials/', 'FPS': 30,
 					 'EXPORT_DIR': 'exported/kcd_custom_head/', 'OBJ_MODEL_PATH': 'models/',
-					 'MATERIAL_PATH': 'materials/', 'SHOW_TEXTURLESS_HEADS': false};
+					 'MATERIAL_PATH': 'materials/', 'SHOW_TEXTURLESS_HEADS': false, 'ROOT_PATH': ""};
 		fs.writeFileSync('config.json', JSON.stringify(data));
 		return data;
 	}
+}
+
+function writeAsync(filename, data)
+{
+	fs.writeFile(filename, data);
 }
 
 function create_texture_database(filelist){
