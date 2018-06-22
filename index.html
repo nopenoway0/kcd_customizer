@@ -64,7 +64,10 @@
 					});
 				}
 				else
+				{
+					ipcRenderer.send('close_setup_window', true);
 					init();
+				}
 			};
 
 			function init(){

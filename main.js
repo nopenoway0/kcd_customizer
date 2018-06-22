@@ -18,6 +18,11 @@ const {app, BrowserWindow, ipcMain} = require('electron')
       win.webContents.send('resume_render');
     });
 
+    ipcMain.on('close_setup_window', (event, data) =>
+    {
+      setup_window.close();
+    })
+
     // and load the index.html of the app.
   }
   
