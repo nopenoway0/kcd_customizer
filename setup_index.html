@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="node_modules/semantic-ui/dist/semantic.min.css">
+		<script
+  			src="https://code.jquery.com/jquery-3.1.1.min.js"
+  			integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+  			crossorigin="anonymous"></script>
+		<script src="node_modules/semantic-ui/dist/semantic.min.js"></script>
+	</head>
+	<body>
+		<input onchange="process_dir(event)" id="root-browser" type="file" style="display:none">
+		<table>
+			<tr>
+				<td>
+					<div class="ui labeled right icon input">
+					  <input type="text" placeholder="KCD.exe" id="root-dir">
+					  <i class="circle folder open link icon" onclick="click_file_browser()"></i>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td style="text-align: center;">
+					<button class="ui button" onclick="store_directory()">Set KCD Directory</button>
+				</td>
+			</tr>
+		</table>
+		<script>
+			const ipcRenderer = require('electron').ipcRenderer
+			function click_file_browser(){
+				document.getElementById("root-browser").click();
+			}
+			function process_dir(event){
+				let re = /file:\/\/\/(.*)\/.*$/i;
+				document.getElementById(("root-dir")).value = event.path[0].baseURI.match(re)[1] + '\/';
+			}
+			function store_directory(){
+				ipcRenderer.send('directory_set', document.getElementById(("root-dir")).value);
+				window.close();
+			}
+		</script>
+	</body>
