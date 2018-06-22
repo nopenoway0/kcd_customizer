@@ -1,6 +1,5 @@
 <html>
 	<head>
-	<link rel="stylesheet" href="semantic/semantic.css">
 		<title>KCD Customizer</title>
 		<style>
 			body { margin: 0; }
@@ -12,11 +11,16 @@
 		<script>
 			var THREE = require('three');
 		</script>
+		<link rel="stylesheet" type="text/css" href="node_modules/semantic-ui/dist/semantic.min.css">
+		<script
+  			src="https://code.jquery.com/jquery-3.1.1.min.js"
+  			integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+  			crossorigin="anonymous"></script>
+		<script src="node_modules/semantic-ui/dist/semantic.min.js"></script>
 		<script src="js/LoaderSupport.js"></script>
 		<script src="js/OBJLoader2.js"></script>
 		<script src="js/MTLLoader.js"></script>
 		<script src="js/setup_functions.js"></script>
-		<script src="semantic/semantic.js"></script>
 		<script>
 			const CONFIG_PATH = "config.json";
 			let configuration = config();
@@ -89,7 +93,7 @@
 				model_index = (model_index + 1) % model_paths.length;
 				console.log('switching to ' + model_paths[model_index]);
 				// check if valid textures are appropriate, if not skip until next a model with appropriate textures appears
-				if(SHOW_TEXTURLESS_HEADS || !exists(texture_database['model'][model_index][0]))
+				if(!SHOW_TEXTURLESS_HEADS && !exists(texture_database['model'][model_index][0]))
 				{
 					next(type);
 					return;
@@ -161,7 +165,7 @@
 					model_index -= 1;
 				else if(model_index == 0)
 					model_index = model_paths.length;
-				if(SHOW_TEXTURLESS_HEADS || !exists(texture_database['model'][model_index][0]))
+				if(!SHOW_TEXTURLESS_HEADS && !exists(texture_database['model'][model_index][0]))
 				{
 					prev(type);
 				}
