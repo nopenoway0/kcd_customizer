@@ -194,15 +194,22 @@
 				let re = /.*\/(.*)_.*\.obj/i
 				let model_name = model_paths[model_index].match(re)[1];
 				let model_filepath = SKIN_MODEL_PATH + model_name + ".skin", mtl_filepath = SKIN_MODEL_PATH + model_name + ".mtl";
-				rmdir(EXPORT_DIR)
+				let chosen_pak = "Heads.pak";
+				((pak) =>{
+					let msg = "exported to: " + EXPORT_DIR;
+					rmdir(EXPORT_DIR)
 					.then(() => mkdir(EXPORT_DIR + 'Data/custom_head/'))
-					.then(()=> extractFrom(ROOT_PATH + 'Heads.pak', HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl'))
-					.then(() => extractFrom(ROOT_PATH + 'Heads.pak', HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/henry.skin'))
+					.then(()=> extractFrom(ROOT_PATH + chosen_pak, HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl'))
+					.catch(() => {extractFrom(ROOT_PATH + "IPL_Heads.pak", HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl');})
+					.then(() => extractFrom(ROOT_PATH + chosen_pak, HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/henry.skin'))
+					.catch(() => extractFrom(ROOT_PATH + "IPL_Heads.pak", HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/henry.skin'))
 					.then(() => zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['henry.mtl', 'henry.skin'], HEAD_LOCATION))
+					.catch(() =>{ msg = "error creating model. either " + HEAD_LOCATION + model_name + ".mtl or the skin  does not exist";})
 					.then(() => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'))
 					.then(() => rmdir(EXPORT_DIR + 'Data/custom_head'))
 					.then(() => Promise.resolve(button.classList.remove('loading')))
-					.then(() => alert("exported to: " + EXPORT_DIR));
+					.then(() => alert(msg));
+				})(chosen_pak);
 			}
 
 		</script>
