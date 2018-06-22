@@ -2,7 +2,7 @@
 	<head>
 		<title>KCD Customizer</title>
 		<style>
-			body { margin: 0; }
+			body { margin: 0}
 			canvas { width: 100%; height: 100% }
 			td{ width:33%; align-content: center; text-align: center;}
 		</style>
@@ -10,6 +10,7 @@
 	<body>
 		<script>
 			var THREE = require('three');
+			var {ipcRenderer} = require('electron')
 		</script>
 		<link rel="stylesheet" type="text/css" href="node_modules/semantic-ui/dist/semantic.min.css">
 		<script
@@ -21,16 +22,19 @@
 		<script src="js/OBJLoader2.js"></script>
 		<script src="js/MTLLoader.js"></script>
 		<script src="js/setup_functions.js"></script>
+		<script src="js/first_time_setup.js"></script>
 		<script>
 			const CONFIG_PATH = "config.json";
 			let configuration = config();
+
+			// run initial setup
 			// set where to find default game models and mats, set fps, and necessary delay to achieve delay
 			// and exported model directory
 			const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
 			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'];
 			var loading_bar, progress_label;
 			var model_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
-			var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i);
+			var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i), ROOT_PATH = configuration['ROOT_PATH'];
 			var current_rotation = 50, model = null, model_index = -1, texture_database = null, scene = new THREE.Scene(), screen_loaded = false;
 			
 			// set slide to rotate displayed model
@@ -39,50 +43,59 @@
 				slider.oninput = function() {
 					current_rotation = this.value;
 				};
+
 				loading_bar = document.getElementById("loading-bar");
 				progress_label = document.getElementById('progress-label');
-				init();
+
+				// capture loaded root path from setup window. Store it in this runtime and write it to the configuration file
+				// then begin initialization. Otherwise just start initializating
+				if(ROOT_PATH.length == 0){
+					ipcRenderer.on('directory_set', (sender, path) =>{
+						ROOT_PATH = path;
+						configuration['ROOT_PATH'] = ROOT_PATH;
+						writeAsync(CONFIG_PATH, JSON.stringify(configuration));
+					});
+					first_time_setup().then(() =>{
+						init();
+					});
+				}
+				else
+					init();
 			};
 
-			// set up scene and rotation
 			function init(){
-			//var current_rotation = 50, model = null, model_index = -1, texture_database = null;
-			//var scene = new THREE.Scene(), 
-			var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
-			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
-			var renderer = new THREE.WebGLRenderer();
-			renderer.setSize( window.innerWidth, window.innerHeight);
-			document.body.appendChild( renderer.domElement );
+				var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
+				var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+				var renderer = new THREE.WebGLRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight);
+				document.body.appendChild( renderer.domElement );
 
-			// get paths to files. model_paths and material paths must be in same order
-			//var model_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
-			//var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i);
+				// load all textures based on materials
+				progress_label.innerHTML = 'Creating Texture Database';
+				create_texture_database(material_paths).then((db)=>{
+					texture_database = db;
+					
+					// start loading of first head
+					next('head');
+					progress_label.innerHTML = 'Setting up scene and loading model';
+				});
+				
 
-			// load all textures based on materials
-			progress_label.innerHTML = 'Creating Texture Database';
-			create_texture_database(material_paths).then((db)=>{
-				texture_database = db;
-				next('head');
-				progress_label.innerHTML = 'Setting up scene and loading model';
-			});
-			
-			// start loading of first head
+				// set up scene with lighting and camera
+				scene.add( light );
+				camera.position.y = .28, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
 
-			// set up scene with lighting and camera
-			scene.add( light );
-			camera.position.y = .28, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
-
-			// start rendering at a set delay speed
-			(function startRendering(){
-				setTimeout(() => {
-					// if model is not null, get slider value, calculate radians of rotation
-					if(model != null)
-						model.setRotationFromAxisAngle(new THREE.Vector3(0,0,1), 2*3.14 * ((current_rotation - 50) / 100.0));
-					renderer.setSize(window.innerWidth, window.innerHeight); // TODO: check how inefficient this is
-					renderer.render(scene, camera);
-					startRendering();
-				}, DELAY);
-			})();
+				// start rendering at a set delay speed
+				(function startRendering(){
+					setTimeout(() => {
+						// if model is not null, get slider value, calculate radians of rotation
+						if(model != null)
+							model.setRotationFromAxisAngle(new THREE.Vector3(0,0,1), 2*3.14 * ((current_rotation - 50) / 100.0));
+						renderer.setSize(window.innerWidth, window.innerHeight); // TODO: check how inefficient this is
+						renderer.render(scene, camera);
+						startRendering();
+					}, DELAY);
+				})();
 			}
 			// change models
 			function set_model(new_model){
@@ -166,9 +179,7 @@
 				else if(model_index == 0)
 					model_index = model_paths.length;
 				if(!SHOW_TEXTURLESS_HEADS && !exists(texture_database['model'][model_index][0]))
-				{
 					prev(type);
-				}
 				else
 				{
 					model_index -= 1;
