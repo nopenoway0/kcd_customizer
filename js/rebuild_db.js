@@ -1,7 +1,7 @@
 var ZipStream = require('node-stream-zip')
 var https = require('https')
 var fs = require("fs-extra")
-var {spawn} = require('child_process')
+var {spawn, exec} = require('child_process')
 function resume()
 {
 	ipcRenderer.send('resume', true);
@@ -19,8 +19,10 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 	// perform check for  SCTexture converter. give alert and direct user to website to download necessary converter. Program will continue
 	// once it fines the converter at star-citizen-texture-converter-v1-3/sctexconv_1.3.exe
 	p.then(() =>{
-		exec('start ' + SCTC_URL);
-		alert("Download SCTexture Converter and extract zip to: " + process.cwd());
+		if(!fs.existsSync('star-citizen-texture-converter-v1-3/sctexconv_1.3.exe')){
+			exec('start ' + SCTC_URL);
+			alert("Download SCTexture Converter and extract zip to: " + process.cwd());
+		};
 		return new Promise((res) =>{
 			(function checkConverter(){
 				setTimeout(() =>{
@@ -184,6 +186,7 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 		$('#cleanup-load').hide();
 		$('#clean-up-finished').removeClass('disabled').addClass('green');
 		console.log("setup finished");
+		ipcRenderer.send('close_setup_window');
 		resume();
 	});
 };

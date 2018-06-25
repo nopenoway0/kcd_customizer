@@ -30,14 +30,12 @@ const {app, BrowserWindow, ipcMain} = require('electron')
     // might need to modify this
     ipcMain.on('resume', (event, data) =>{
       setup_window.hide();
-      win.webContents.send('resume_render');
+      win.webContents.send('resume');
     })
 
     ipcMain.on('close_setup_window', (event, data) =>
     {
-      if(setup_window != null)
-        setup_window.close();
-      setup_window = null;
+      setup_window.hide();
     })
     win.on('close', () =>{
       if(setup_window != null)

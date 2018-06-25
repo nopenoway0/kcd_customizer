@@ -50,26 +50,29 @@
 
 				loading_bar = document.getElementById("loading-bar");
 				progress_label = document.getElementById('progress-label');
-				ipcRenderer.send('load_rebuild_window', [ROOT_PATH, TEXTURE_PATH]); // after setting appropriate values
-				//rebuild(ROOT_PATH, TEXTURE_PATH);
+				//ipcRenderer.send('load_rebuild_window', [ROOT_PATH, TEXTURE_PATH]); // after setting appropriate values
 				
 				// capture loaded root path from setup window. Store it in this runtime and write it to the configuration file
 				// then begin initialization. Otherwise just start initializating
-				/*if(ROOT_PATH.length == 0){
+				if(ROOT_PATH.length == 0){
 					ipcRenderer.on('directory_set', (sender, path) =>{
 						ROOT_PATH = path;
 						configuration['ROOT_PATH'] = ROOT_PATH;
 						writeAsync(CONFIG_PATH, JSON.stringify(configuration));
 					});
 					first_time_setup().then(() =>{
-						init();
+						texture_db_check();
 					});
 				}
 				else
 				{
-					ipcRenderer.send('close_setup_window', true);
+					//ipcRenderer.send('close_setup_window', true);
+					texture_db_check();
+				}
+
+				ipcRenderer.on('resume', (sender, data) =>{
 					init();
-				}*/
+				})
 			};
 
 			function init(){

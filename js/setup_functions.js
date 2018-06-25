@@ -5,6 +5,15 @@ require('./js/LoaderSupport.js')
 require('./js/OBJLoader2.js')
 const JSZip = require('jszip')
 const StreamZip = require('node-stream-zip')
+
+function texture_db_check()
+{
+	if(!fs.existsSync('textures/att_bonus_armor_tag_diff.JPG'))
+		ipcRenderer.send('load_rebuild_window', [ROOT_PATH, TEXTURE_PATH]);
+	else
+		ipcRenderer.send('resume');
+}
+
 // load configuration file, or create a default one
 function config(){
 	if(fs.existsSync(CONFIG_PATH)){
