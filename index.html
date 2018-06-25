@@ -31,7 +31,7 @@
 			// set where to find default game models and mats, set fps, and necessary delay to achieve delay
 			// and exported model directory
 			const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
-			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'];
+			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'], TEXTURE_PATH = configuration['TEXTURE_PATH'];
 			var loading_bar, progress_label, model_list;
 			var obj_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
 			var model_paths = {};
@@ -50,10 +50,12 @@
 
 				loading_bar = document.getElementById("loading-bar");
 				progress_label = document.getElementById('progress-label');
-
+				ipcRenderer.send('load_rebuild_window', [ROOT_PATH, TEXTURE_PATH]); // after setting appropriate values
+				//rebuild(ROOT_PATH, TEXTURE_PATH);
+				
 				// capture loaded root path from setup window. Store it in this runtime and write it to the configuration file
 				// then begin initialization. Otherwise just start initializating
-				if(ROOT_PATH.length == 0){
+				/*if(ROOT_PATH.length == 0){
 					ipcRenderer.on('directory_set', (sender, path) =>{
 						ROOT_PATH = path;
 						configuration['ROOT_PATH'] = ROOT_PATH;
@@ -67,7 +69,7 @@
 				{
 					ipcRenderer.send('close_setup_window', true);
 					init();
-				}
+				}*/
 			};
 
 			function init(){
