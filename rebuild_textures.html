@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+	<head>
+		<script>
+			const jQuery = require('Jquery');
+			const $ = jQuery;
+			require('semantic-ui/dist/semantic.min.js')
+  		</script>
+		<link rel="stylesheet" type="text/css" href="node_modules/semantic-ui/dist/semantic.min.css">
+	</head>
+		<script src="js/rebuild_db.js"></script>
+	<body>
+		<script>
+			const {ipcRenderer} = require('electron');
+			//var ROOT_PATH = 'E:/Steam Games/steamapps/common/KingdomComeDeliverance/Data/', TEXTURE_PATH = 'textures/';
+			var ROOT_PATH, TEXTURE_PATH;
+			ipcRenderer.on('paths', (sender, data) =>{
+				console.log(data);
+				ROOT_PATH = data[0];
+				TEXTURE_PATH = data[1];
+			});
+		</script>
+		<table style="width:100%">
+			<tr>
+				<td style="text-align: center">
+					<div id = 'msg'>
+						<blockquote>
+							<p>
+								No textures have been detected. If you have only compiled the source you may need to extract and convert the required textures for each character's head. Would you like KCD to do this?
+							</p>
+						</blockquote>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td style="text-align: center">
+					<div class="ui vertical buttons">
+						<div>
+							<div class="ui button disabled" id='converter-found'>SCTexture Converter Found</div>
+						</div>
+						<div id='texture-loading-container'>
+					    	<div class="ui button disabled" id='extraction-finished'>Extract Textures</div>
+							<div class="ui basic demo progress" id='texture-load' style="display:none">
+							  <div class="bar">
+							  </div>
+							  <div class="label" style="width:200px"></div>
+							</div>
+					    </div>
+					    <div id = 'convert-texture-container'>
+					    	<div class="ui button disabled" id='converted-texture'>Convert Textures</div>
+					    	<div class="ui basic demo progress" id='convert-load' style="display:none">
+								<div class="bar">
+								</div>
+								<div class="label" style="width:200px">Converting Textures</div>
+							</div>
+						</div>
+					    <div id = 'cleanup-container'>
+					    	<div class="ui button disabled" id='clean-up-finished'>Clean Up</div>
+					    	<div class="ui basic demo progress" id='cleanup-load' style="display:none">
+								<div class="bar">
+								</div>
+								<div class="label" style="width:200px">Cleaning Up...</div>
+							</div>
+						</div>
+				  	</div>
+				</td>
+			</tr>
+			<tr>
+				<td style="text-align: center">
+					<div id='choice'>
+						<button class="ui button" onclick="rebuild(ROOT_PATH, TEXTURE_PATH)">Yes</button>
+						<button class="ui button" onclick="resume()">No</button>
+					</div>
+				</td>
+			</tr>
+		</table>
+	</body>
