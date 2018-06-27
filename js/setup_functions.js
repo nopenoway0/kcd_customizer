@@ -21,9 +21,9 @@ function config(){
 		return data;
 	}
 	else{
-		let data = {'SKIN_MODEL_PATH': 'materials/', 'FPS': 30,
-					 'EXPORT_DIR': 'exported/kcd_custom_head/', 'OBJ_MODEL_PATH': 'models/',
-					 'MATERIAL_PATH': 'materials/', 'SHOW_TEXTURLESS_HEADS': false, 'ROOT_PATH': "", 'TEXTURE_PATH': "textures/"};
+		let data = {'SKIN_MODEL_PATH': 'resources/app.asar/materials/', 'FPS': 30,
+					 'EXPORT_DIR': 'exported/kcd_custom_head/', 'OBJ_MODEL_PATH': 'resources/app.asar.unpacked/models/',
+					 'MATERIAL_PATH': 'resources/app.asar/materials/', 'SHOW_TEXTURLESS_HEADS': true, 'ROOT_PATH': "", 'TEXTURE_PATH': "textures/"};
 		fs.writeFileSync('config.json', JSON.stringify(data));
 		return data;
 	}
@@ -34,7 +34,7 @@ function writeAsync(filename, data)
 	fs.writeFile(filename, data);
 }
 
-function create_mtl_database(table_location)
+function create_mtl_database(table_location, mat_path = MATERIAL_PATH)
 {
 	return new Promise((res, rej) =>{
 		let parser = new xml2js.Parser();
@@ -45,10 +45,11 @@ function create_mtl_database(table_location)
 			let relevant_data = data.database.table[0]['rows'][0].row;
 			for(let x = 0; x < relevant_data.length; x++)
 			{
-				let model_name = relevant_data[x]['$']['model'], mat_location = MATERIAL_PATH + relevant_data[x]['$'].material + '.mtl';
+				let model_name = relevant_data[x]['$']['model'], mat_location = mat_path + relevant_data[x]['$'].material + '.mtl';
 				let map_mat_mod = {model: model_name, material_path: mat_location};
 				models.push(model_name);
 				mtl_list.push(map_mat_mod);
+				console.log("storing: " + JSON.stringify(map_mat_mod));
 			}
 			res([mtl_list, models]);
 		});
@@ -70,9 +71,11 @@ function create_texture_database(filelist){
 		for(var x = 0; x < filelist.length; x++){
 			let parse = true, data = null;
 			try{
-				data = fs.readFileSync(filelist[x].material_path), mats = [];
+				console.log("loading " + filelist[x]);
+				data = fs.readFileSync("resources/app.asar/" + filelist[x].material_path), mats = []; // change for production
 			}catch (err)
 			{
+				console.log("error parsing mtl file" + err);
 				parse = false;
 			}
 			if(parse){
@@ -91,6 +94,7 @@ function create_texture_database(filelist){
 							 */
 							let texture_type = materials[y]['$'].Name, img_name = materials[y]["Textures"][0]["Texture"][0]['$'].File.match(re)[1];
 							if(texture_type == 'head' || texture_type == 'eyes' || texture_type == 'mouth' || texture_type == 'beard' || texture_type == 'hair'){
+								console.log("storing entry: " + 'textures/' + img_name  + ".jpg");
 								mats.push('textures/' + img_name  + ".jpg");
 								model_textures[texture_type]['textures/' + img_name + ".jpg"] = true;
 							}
@@ -116,10 +120,13 @@ function create_texture_database(filelist){
  * @return {[type]}               returns of list of strings of the files in the directory that match the regular expression
  */
 function get_file_list(directory, re, include_path = true){
+	directory = directory.match(/(.*)\//i)[1];
 	let files = fs.readdirSync(directory), relevant_files = [];
+	console.log(files);
+	console.log(process.cwd());
 	for(let x = 0; x < files.length; x++){
 		if(files[x].match(re) != null){
-			let tmp = (include_path) ? directory + files[x] : files[x];
+			let tmp = (include_path) ? directory + '/' + files[x] : files[x];
 			relevant_files.push(tmp);
 		}
 	}
@@ -134,6 +141,7 @@ function get_file_list(directory, re, include_path = true){
  * @return {[type]}          3DObject - may be Model, texture or material
  */
 function load_asset(filename, type = 'obj'){
+	console.log('loading ' + filename);
 	const loader_type = {'obj': THREE.OBJLoader2, 'mtl': THREE.MTLLoader, 'txt': THREE.TextureLoader};
 	return new Promise((resolve, reject) => {
 		if(!exists(filename))

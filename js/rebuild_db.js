@@ -2,6 +2,9 @@ var ZipStream = require('node-stream-zip')
 var https = require('https')
 var fs = require("fs-extra")
 var {spawn, exec} = require('child_process')
+const RESOURCE_PATH = 'resources/app.asar/'
+const {ipcRenderer} = require('electron');
+
 function resume()
 {
 	ipcRenderer.send('resume', true);
@@ -14,11 +17,20 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 	// get texture converter
 	const SCTC_URL = 'https://forums.robertsspaceindustries.com/discussion/369524/sc-texture-converter/p1'
 	const SCTC_CONFIG = "verbose = false\nrecursive = false\nclean = true\nmerge_gloss = true\nformat = jpg\n"
-	let p = Promise.resolve();
-
+	let p = new Promise((res) =>{
+		ipcRenderer.send('request-paths', true);
+		ipcRenderer.on('paths', (sender, data) =>{
+			console.log(data);
+			root_directory = data[0];
+			texture_path = data[1];
+			res();
+		});	
+	});
 	// perform check for  SCTexture converter. give alert and direct user to website to download necessary converter. Program will continue
 	// once it fines the converter at star-citizen-texture-converter-v1-3/sctexconv_1.3.exe
 	p.then(() =>{
+		// create texture_path directory in case it doesn't exist
+		fs.ensureDirSync(texture_path);
 		if(!fs.existsSync('star-citizen-texture-converter-v1-3/sctexconv_1.3.exe')){
 			exec('start ' + SCTC_URL);
 			alert("Download SCTexture Converter and extract zip to: " + process.cwd());
@@ -186,7 +198,7 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 		$('#cleanup-load').hide();
 		$('#clean-up-finished').removeClass('disabled').addClass('green');
 		console.log("setup finished");
-		ipcRenderer.send('close_setup_window');
 		resume();
+		ipcRenderer.send('close_setup_window');
 	});
 };
