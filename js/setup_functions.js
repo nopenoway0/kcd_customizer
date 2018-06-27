@@ -144,8 +144,6 @@ function load_asset(filename, type = 'obj'){
 	console.log('loading ' + filename);
 	const loader_type = {'obj': THREE.OBJLoader2, 'mtl': THREE.MTLLoader, 'txt': THREE.TextureLoader};
 	return new Promise((resolve, reject) => {
-		if(!exists(filename))
-			reject("file: " + filename + " does not exists");
 		let loader = new loader_type[type]();
 		loader.load(filename, (object) =>{
 			console.log("successfully loaded " + filename);
