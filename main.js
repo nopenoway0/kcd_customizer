@@ -36,7 +36,6 @@ const {app, BrowserWindow, ipcMain} = require('electron')
       win.webContents.send('resume_render');
     });
 
-    // might need to modify this
     ipcMain.on('resume', (event, data) =>{
       setup_window.hide();
       win.webContents.send('resume');
