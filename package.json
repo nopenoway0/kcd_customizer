@@ -2,18 +2,33 @@
   "name": "kcd_custom",
   "version": "1.0.0",
   "description": "",
+  "nodeGypRebuild": true,
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build":{
+    "asarUnpack": ["**models/**"]
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "electron": "^2.0.2",
+    "electron-builder": "^20.16.0",
     "fs-extra": "^6.0.1",
+    "jquery": "^3.3.1",
     "jszip": "^3.1.5",
     "node-stream-zip": "^1.7.0",
-    "semantic-ui": "^2.3.2",
+    "three": "^0.93.0",
+    "xml2js": "^0.4.19"
+  },
+  "dependencies": {
+    "fs-extra": "^6.0.1",
+    "jquery": "^3.3.1",
+    "jszip": "^3.1.5",
+    "node-stream-zip": "^1.7.0",
     "three": "^0.93.0",
     "xml2js": "^0.4.19"
   }

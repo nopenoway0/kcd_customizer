@@ -11,13 +11,14 @@
 		<script>
 			var THREE = require('three');
 			var {ipcRenderer} = require('electron')
+
 		</script>
-		<link rel="stylesheet" type="text/css" href="node_modules/semantic-ui/dist/semantic.min.css">
+		<link rel="stylesheet" type="text/css" href="semantic-ui/semantic.min.css">
 		<script
   			src="https://code.jquery.com/jquery-3.1.1.min.js"
   			integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
   			crossorigin="anonymous"></script>
-		<script src="node_modules/semantic-ui/dist/semantic.min.js"></script>
+		<script src="semantic-ui/semantic.min.js"></script>
 		<script src="js/LoaderSupport.js"></script>
 		<script src="js/OBJLoader2.js"></script>
 		<script src="js/MTLLoader.js"></script>
@@ -26,23 +27,28 @@
 		<script>
 			const CONFIG_PATH = "config.json";
 			let configuration = config();
-
 			// run initial setup
 			// set where to find default game models and mats, set fps, and necessary delay to achieve delay
 			// and exported model directory
 			const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
-			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'];
+			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'], TEXTURE_PATH = configuration['TEXTURE_PATH'];
 			var loading_bar, progress_label, model_list;
 			var obj_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
 			var model_paths = {};
 			for(let x = 0; x < obj_paths.length; x++)
-				model_paths[obj_paths[x].match(/\/(.*)_lod1.obj/i)[1]] = obj_paths[x];
+				model_paths[obj_paths[x].match(/\/([a-zA-Z0-9_]+)_lod1.obj/i)[1]] = obj_paths[x];
+			console.log(model_paths);
 			/*var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i),*/
 			var material_paths, ROOT_PATH = configuration['ROOT_PATH'];
 			var current_rotation = 50, model = null, model_index = -1, texture_database = null, scene = new THREE.Scene(), screen_loaded = false;
 			
 			// set slide to rotate displayed model
 			window.onload = () => {
+				ipcRenderer.on('request-paths', (event, data) =>{
+					console.log("request paths received sending: " + [ROOT_PATH, TEXTURE_PATH])
+					event.sender.send('paths', [ROOT_PATH, TEXTURE_PATH]);
+				});
+
 				let slider = document.getElementById("rotate-head");
 				slider.oninput = function() {
 					current_rotation = this.value;
@@ -50,7 +56,7 @@
 
 				loading_bar = document.getElementById("loading-bar");
 				progress_label = document.getElementById('progress-label');
-
+				
 				// capture loaded root path from setup window. Store it in this runtime and write it to the configuration file
 				// then begin initialization. Otherwise just start initializating
 				if(ROOT_PATH.length == 0){
@@ -60,14 +66,17 @@
 						writeAsync(CONFIG_PATH, JSON.stringify(configuration));
 					});
 					first_time_setup().then(() =>{
-						init();
+						texture_db_check();
 					});
 				}
 				else
 				{
-					ipcRenderer.send('close_setup_window', true);
-					init();
+					texture_db_check();
 				}
+
+				ipcRenderer.on('resume', (sender, data) =>{
+					init();
+				})
 			};
 
 			function init(){
@@ -79,8 +88,9 @@
 
 				// load all textures based on materials
 				progress_label.innerHTML = 'Creating Texture Database';
-				let mat_promise = create_mtl_database('./materials/character_head.xml');
+				let mat_promise = create_mtl_database(MATERIAL_PATH + 'character_head.xml', "materials/");
 				mat_promise.then((db) =>{
+					console.log(db);
 					material_paths = db[0];
 					model_list = db[1];
 					create_texture_database(material_paths).then((db)=>{
@@ -121,17 +131,16 @@
 				// 2. if the texture for that model is undefined it means something is wrong with loading. This doesn't mean the texture hasn't been found, it means for some reason
 				// when loading the database it was never created
 				// 3 & 4. If the SHOW_TEXTURELESS_HEADS is enabled show textureless heads regardless of if the file was loaded otherwise skip this head
+				
 				if(model_paths[model_list[model_index]] == undefined || texture_database['model'][model_list[model_index]] == undefined || (!SHOW_TEXTURLESS_HEADS && !exists(texture_database['model'][model_list[model_index]][0])))
 				{
 					next(type);
 					return;
 				}
-
+				
 				scene.remove(model);
-				load_asset(model_paths[model_list[model_index]]).then((result) =>{
+				load_asset('../../' + model_paths[model_list[model_index]]).then((result) =>{ // TODO: change path
 					set_model(result); 
-					console.log("loading following textures:" + texture_database['model']['ptacek']);
-					
 					/**
 					 * Sequentially load all textures in the corresponding index relevant to the current model. load_asset returns
 					 * a promise making sure each asset is loaded sequentially. This is necessary because of the order of the meshes.
@@ -139,14 +148,15 @@
 					 * , [3 or 4 depending on hair] beard (optional). Thus, each texture must be loaded in order to be peroperly applied
 					 * to the correct mesh.
 					 */
-					console.log(texture_database.model[model_list[model_index]]);
-					let p = load_asset(texture_database['model'][model_list[model_index]][0], 'txt'), length = texture_database['model'][model_list[model_index]].length;
+					console.log('texture db: ' + JSON.stringify(texture_database));
+					//console.log(texture_database.model[model_list[model_index]]);
+					let p = load_asset(' ../../' + texture_database['model'][model_list[model_index]][0], 'txt'), length = texture_database['model'][model_list[model_index]].length;
 					for(let x = 1; x <= length; x++){
 						p = p.then((texture)=>{
 							loading_bar.style.width = 70 + length / x * 10 + '%'; 
 							model.children[x - 1].material = new THREE.MeshLambertMaterial({map: texture}); 
 							if(x < length)
-								return load_asset(texture_database['model'][model_list[model_index]][x], 'txt');
+								return load_asset('../../' + texture_database['model'][model_list[model_index]][x], 'txt');
 							else
 							{
 								// hide beard and hair and other features
@@ -166,7 +176,7 @@
 						},(err)=>{
 							console.log(err);
 							if(x < length)
-								return load_asset(texture_database['model'][model_list[model_index]][x], 'txt');
+								return load_asset('../../' + texture_database['model'][model_list[model_index]][x], 'txt');
 						});
 					}
 					// the model didn't go through the hiding of additional features and thus was never added to the scene. So it gets added here
@@ -176,7 +186,6 @@
 						scene.add(model);
 					}
 					});;
-
 			};
 
 			function screenLoaded(){
@@ -194,7 +203,7 @@
 					model_index -= 1;
 				else if(model_index == 0)
 					model_index = model_list.length;
-				if(!SHOW_TEXTURLESS_HEADS && !exists(texture_database['model'][model_list[model_index]][0]))
+				if(model_paths[model_list[model_index]] == undefined || texture_database['model'][model_list[model_index]] == undefined || (!SHOW_TEXTURLESS_HEADS && !exists(texture_database['model'][model_list[model_index]][0])))
 					prev(type);
 				else
 				{
