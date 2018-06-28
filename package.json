@@ -10,7 +10,13 @@
     "dist": "electron-builder"
   },
   "build":{
-    "asarUnpack": ["**models/**"]
+    "files":["!package.texturebuild.json", "!textures"],
+    "asarUnpack":["**models/**"],
+    "nsis":{
+      "oneClick": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory":true
+    }
   },
   "author": "",
   "license": "ISC",
