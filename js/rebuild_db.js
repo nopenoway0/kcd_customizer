@@ -5,18 +5,31 @@ var {spawn, exec} = require('child_process')
 const RESOURCE_PATH = 'resources/app.asar/'
 const {ipcRenderer} = require('electron');
 
-function resume()
-{
+/**
+ * Send resume signal to main ipc process
+ */
+function resume(){
 	ipcRenderer.send('resume', true);
 }
 
-function rebuild(root_directory, texture_path, retrieve_texture_converter = true)
-{
+/**
+ * Rebuild the texture database from scratch. The flow for this function is:
+ * 1. check if the texture converter is in the app directory, if not prompt download
+ * 2. Extract all diffuse textures from Heads.pak, Characters.pak, and IPL_Heads.pak
+ * 3. Convert all textures that have been extracted
+ * 4. Remove all textures that havent or are not converted
+ * @param  {[type]}  root_directory             [description]
+ * @param  {[type]}  texture_path               [description]
+ * @return {[type]}                             [description]
+ */
+function rebuild(root_directory, texture_path){
 	console.log("ROOT_DIR: " + root_directory);
 	console.log("TEX_DIR:" + texture_path);
-	// get texture converter
+	// url for converter
 	const SCTC_URL = 'https://forums.robertsspaceindustries.com/discussion/369524/sc-texture-converter/p1'
 	const SCTC_CONFIG = "verbose = false\nrecursive = false\nclean = true\nmerge_gloss = true\nformat = jpg\n"
+
+	// make sure that root directory and texture paths have been set, if not passed in through parameter
 	let p = new Promise((res) =>{
 		ipcRenderer.send('request-paths', true);
 		ipcRenderer.on('paths', (sender, data) =>{
@@ -27,7 +40,7 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 		});	
 	});
 	// perform check for  SCTexture converter. give alert and direct user to website to download necessary converter. Program will continue
-	// once it fines the converter at star-citizen-texture-converter-v1-3/sctexconv_1.3.exe
+	// once it finds the converter at star-citizen-texture-converter-v1-3/sctexconv_1.3.exe
 	p.then(() =>{
 		// create texture_path directory in case it doesn't exist
 		fs.ensureDirSync(texture_path);
@@ -35,13 +48,12 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 			exec('start ' + SCTC_URL);
 			alert("Download SCTexture Converter and extract zip to: " + process.cwd());
 		};
+		// continually check for presence of converter. When found, affirm by changing button to green and resolving to next stem
 		return new Promise((res) =>{
 			(function checkConverter(){
 				setTimeout(() =>{
-					if(!fs.existsSync('star-citizen-texture-converter-v1-3/sctexconv_1.3.exe')){
+					if(!fs.existsSync('star-citizen-texture-converter-v1-3/sctexconv_1.3.exe'))
 						checkConverter();
-						console.log('converter not found');
-					}
 					else{
 						// perform sync change on config to jpg. threejs jpg has more support than the default tif
 						fs.writeFileSync('star-citizen-texture-converter-v1-3/config.txt', SCTC_CONFIG);						
@@ -56,7 +68,7 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 			})();
 		});
 	})
-	// texture extraction phase from the according zip files in the game. Searches only for diff.dss textures
+	// texture extraction phase from the according zip files in the game. Searches only for diff.dds textures
 	.then(() =>{
 		$('#texture-load').css('display', 'inline');
 		$('#texture-loading-container').css('margin-bottom', "20px");
@@ -96,8 +108,6 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 										zip.extract(file.name, texture_path + filename, (err, count)=>{
 											if(err)
 												console.log("Error: " + err);
-											//else
-												//console.log('extracted ' + filename);
 											$('#texture-load').progress('increment');
 											res();
 										});
@@ -158,13 +168,12 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 			});
 		})
 	})
-	// clean up
+	// clean up. Remove all unconverted files
 	.then(() =>{
 		return new Promise((res) =>{
 			$('#converted-texture').removeClass('disabled').addClass('green');
 			$('#convert-load').hide();
 			$('#convert-texture-container').css('margin-bottom', "0px");
-			// start converting textures
 			$('#cleanup-container').css('margin-bottom', '20px');
 			$('#cleanup-load').css('display', 'inline');
 
@@ -178,8 +187,7 @@ function rebuild(root_directory, texture_path, retrieve_texture_converter = true
 				else{
 					new Promise((res) =>{
 						let filename = files.shift();
-						if(filename.match(match_delete_re))
-						{
+						if(filename.match(match_delete_re)){
 							fs.removeSync(texture_path + filename);
 							$('#cleanup-load').progress('increment');
 							res();

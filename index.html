@@ -38,7 +38,7 @@
 			for(let x = 0; x < obj_paths.length; x++)
 				model_paths[obj_paths[x].match(/\/([a-zA-Z0-9_]+)_lod1.obj/i)[1]] = obj_paths[x];
 			console.log(model_paths);
-			/*var material_paths = get_file_list(MATERIAL_PATH, /.*\.mtl/i),*/
+
 			var material_paths, ROOT_PATH = configuration['ROOT_PATH'];
 			var current_rotation = 50, model = null, model_index = -1, texture_database = null, scene = new THREE.Scene(), screen_loaded = false;
 			
@@ -79,7 +79,9 @@
 				})
 			};
 
+			// start initialization for rendering
 			function init(){
+				// create basics for scene
 				var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
 				var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
 				var renderer = new THREE.WebGLRenderer();
@@ -117,6 +119,7 @@
 					}, DELAY);
 				})();
 			}
+
 			// change models
 			function set_model(new_model){
 				model = new_model.detail.loaderRootNode;
@@ -131,7 +134,6 @@
 				// 2. if the texture for that model is undefined it means something is wrong with loading. This doesn't mean the texture hasn't been found, it means for some reason
 				// when loading the database it was never created
 				// 3 & 4. If the SHOW_TEXTURELESS_HEADS is enabled show textureless heads regardless of if the file was loaded otherwise skip this head
-				
 				if(model_paths[model_list[model_index]] == undefined || texture_database['model'][model_list[model_index]] == undefined || (!SHOW_TEXTURLESS_HEADS && !exists(texture_database['model'][model_list[model_index]][0])))
 				{
 					next(type);
@@ -147,9 +149,8 @@
 					 * Meshes in each model are broke into [0]head, [1]eyes, [2] mouth, [3]hair(optional)
 					 * , [3 or 4 depending on hair] beard (optional). Thus, each texture must be loaded in order to be peroperly applied
 					 * to the correct mesh.
+					 * notice the ../../. This is because the electron app, after build, starts in the app.asar path
 					 */
-					console.log('texture db: ' + JSON.stringify(texture_database));
-					//console.log(texture_database.model[model_list[model_index]]);
 					let p = load_asset(' ../../' + texture_database['model'][model_list[model_index]][0], 'txt'), length = texture_database['model'][model_list[model_index]].length;
 					for(let x = 1; x <= length; x++){
 						p = p.then((texture)=>{
@@ -188,6 +189,7 @@
 					});;
 			};
 
+			// unhide camera control elements and hide the progress bar
 			function screenLoaded(){
 				if(screen_loaded)
 					return;
@@ -218,22 +220,28 @@
 				// export the head performing sequential steps, hence all the promising
 				let model_name = model_list[model_index];
 				let model_filepath = SKIN_MODEL_PATH + model_name + ".skin", mtl_filepath = SKIN_MODEL_PATH + model_name + ".mtl";
-				let chosen_pak = "Heads.pak";
-				((pak) =>{
+				let paks = ["Heads.pak", "IPL_Heads.pak"];
+
+				//TODO: YIKES, rewrite this
+				(() =>{
 					let msg = "exported to: " + EXPORT_DIR;
 					rmdir(EXPORT_DIR)
 					.then(() => mkdir(EXPORT_DIR + 'Data/custom_head/'))
-					.then(()=> extractFrom(ROOT_PATH + chosen_pak, HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl'))
-					.catch(() => {extractFrom(ROOT_PATH + "IPL_Heads.pak", HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl');})
-					.then(() => extractFrom(ROOT_PATH + chosen_pak, HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/henry.skin'))
-					.catch(() => extractFrom(ROOT_PATH + "IPL_Heads.pak", HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/henry.skin'))
+
+					// check both paks for mtl, if not present check for lod1 version of mtl
+					// TODO: wrong order
+					.then(() => extractFrom(ROOT_PATH + paks[0], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl'))
+					.then(() => Promise.resolve,
+						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl'))
+					.then(() => extractFrom(ROOT_PATH + paks[0], HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/henry.skin'))
+					.then(() => Promise.resolve,
+						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/henry.skin'))
 					.then(() => zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['henry.mtl', 'henry.skin'], HEAD_LOCATION))
-					.catch(() =>{ msg = "error creating model. either " + HEAD_LOCATION + model_name + ".mtl or the skin  does not exist";})
-					.then(() => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'))
+					.then((res) => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'), (rej) => {})
 					.then(() => rmdir(EXPORT_DIR + 'Data/custom_head'))
 					.then(() => Promise.resolve(button.classList.remove('loading')))
 					.then(() => alert(msg));
-				})(chosen_pak);
+				})()
 			}
 
 		</script>

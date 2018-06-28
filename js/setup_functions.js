@@ -34,6 +34,13 @@ function writeAsync(filename, data)
 	fs.writeFile(filename, data);
 }
 
+/**
+ * The base game comes with a table that contains the necessary materials for models in the game. This parses through the table and extracts each material name.
+ * Additionally, it maps each material to a model
+ * @param  {[type]} table_location [location of xml table concerned with the model heads]
+ * @param  {[type]} mat_path       [path to store materials]
+ * @return {[type]}                [results in the list of materials and matching models]
+ */
 function create_mtl_database(table_location, mat_path = MATERIAL_PATH)
 {
 	return new Promise((res, rej) =>{
@@ -56,6 +63,12 @@ function create_mtl_database(table_location, mat_path = MATERIAL_PATH)
 	});
 }
 
+/**
+ * Using the previously created database of materials, this function parses the necessary materials to retrieve which textures are needed
+ * for each model head.
+ * @param  {[type]} filelist [list of meterials]
+ * @return {[type]}          [list of textures sorted by part and model]
+ */
 function create_texture_database(filelist){
 	return new Promise((resolve, reject) => {
 		let parser = new xml2js.Parser(), re = /.*\/(.*)\..*$/i;
@@ -199,7 +212,6 @@ function rmdir(dir){
 
 function zipFolder(dir, name, files, path = "contents"){
 	return new Promise((res)=>{
-		console.log(files);
 		let zip = new JSZip();
 		let folder = zip.folder(path);
 		for(let x = 0; x < files.length; x++){
@@ -220,13 +232,13 @@ function exists(file)
 
 function extractFrom(archive_path, file_path, new_file)
 {
-	return new Promise((res) => {
-		console.log('exporting to ' + new_file);
+	return new Promise((res, rej) => {
 		let zip_stream = new StreamZip({file: archive_path, store_entries: true});
 		zip_stream.on('ready', () =>{
-			zip_stream.extract(file_path, new_file, err => {
+			zip_stream.extract(file_path, new_file, (err,count) => {
+				console.log('extracted ' + archive_path + '/' + file_path);
+				(count == 0) ? rej('Extract error') : res('Extracted');
 				zip_stream.close();
-			    err ? rej('Extract error') : res('Extracted');
 			 });
 		});
 	});
