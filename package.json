@@ -1,6 +1,6 @@
 {
   "name": "kcd_custom",
-  "version": "1.0.0",
+  "version": "0.8.0",
   "description": "",
   "nodeGypRebuild": true,
   "main": "main.js",
