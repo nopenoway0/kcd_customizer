@@ -4,11 +4,11 @@ const {app, BrowserWindow, ipcMain} = require('electron')
   // Create the browser window.
     var win = new BrowserWindow({width: 730, height: 600})
     win.loadFile('index.html')
-    //win.webContents.openDevTools();
+    win.webContents.openDevTools();
     var setup_window = new BrowserWindow({parent: win, modal: true, width: 400, height: 200, show: false, frame: false});
 
     setup_window.loadFile('setup_index.html')
-    //setup_window.openDevTools();
+    setup_window.openDevTools();
 
     ipcMain.on('request-paths', (event, data) =>{
       win.webContents.send('request-paths', true);

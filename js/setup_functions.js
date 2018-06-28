@@ -212,7 +212,6 @@ function rmdir(dir){
 
 function zipFolder(dir, name, files, path = "contents"){
 	return new Promise((res)=>{
-		console.log(files);
 		let zip = new JSZip();
 		let folder = zip.folder(path);
 		for(let x = 0; x < files.length; x++){
@@ -233,13 +232,13 @@ function exists(file)
 
 function extractFrom(archive_path, file_path, new_file)
 {
-	return new Promise((res) => {
-		console.log('exporting to ' + new_file);
+	return new Promise((res, rej) => {
 		let zip_stream = new StreamZip({file: archive_path, store_entries: true});
 		zip_stream.on('ready', () =>{
-			zip_stream.extract(file_path, new_file, err => {
+			zip_stream.extract(file_path, new_file, (err,count) => {
+				console.log('extracted ' + archive_path + '/' + file_path);
+				(count == 0) ? rej('Extract error') : res('Extracted');
 				zip_stream.close();
-			    err ? rej('Extract error') : res('Extracted');
 			 });
 		});
 	});
