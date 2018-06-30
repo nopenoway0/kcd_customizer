@@ -33,15 +33,11 @@
 			// and exported model directory
 			const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
 			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'], TEXTURE_PATH = configuration['TEXTURE_PATH'];
-			var loading_bar, progress_label, model_list;
-			var obj_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
-			var model_paths = {};
-			var model_info_list;
-			for(let x = 0; x < obj_paths.length; x++)
-				model_paths[obj_paths[x].match(/\/([a-zA-Z0-9_]+)_lod1.obj/i)[1]] = obj_paths[x];
+			var ROOT_PATH = configuration['ROOT_PATH'];
 
-			var material_paths, ROOT_PATH = configuration['ROOT_PATH'];
-			var current_rotation = 50, model = null, model_index = -1, texture_database = null, scene = new THREE.Scene(), screen_loaded = false;
+			var material_paths, model_info_list, hair_info_list = [], beard_info_list = [];
+			var current_rotation = 50, model_indeces = {'head': -1, 'hair': -1, 'beard': -1}, texture_database = null, scene = new THREE.Scene(), screen_loaded = false;
+			var global_model = {'head': null, 'hair': null, 'beard': null};
 			
 			// set slide to rotate displayed model
 			window.onload = () => {
@@ -54,9 +50,6 @@
 				slider.oninput = function() {
 					current_rotation = this.value;
 				};
-
-				loading_bar = document.getElementById("loading-bar");
-				progress_label = document.getElementById('progress-label');
 				
 				// capture loaded root path from setup window. Store it in this runtime and write it to the configuration file
 				// then begin initialization. Otherwise just start initializating
@@ -71,9 +64,7 @@
 					});
 				}
 				else
-				{
 					texture_db_check();
-				}
 
 				ipcRenderer.on('resume', (sender, data) =>{
 					init();
@@ -89,15 +80,25 @@
 				renderer.setSize( window.innerWidth, window.innerHeight);
 				document.body.appendChild( renderer.domElement );
 
+				// load hair models
+				let hairfiles = get_file_list('models/hair/', '.obj')
+				for(let x = 0; x < hairfiles.length; x++){	
+					hair_info_list.push(new ModelFactory(hairfiles[x], [], "", "model_name", "name"));
+				}
+
+				// load beard models
+				let beardfiles = get_file_list('models/beards/', '.obj');
+				for(let x = 0; x < beardfiles.length; x++){	
+					beard_info_list.push(new ModelFactory(beardfiles[x], [], "", "model_name", "name"));
+				}
+
 				// load all textures based on materials
-				progress_label.innerHTML = 'Creating Texture Database';
 				let mat_promise = create_mtl_database(MATERIAL_PATH + 'character_head.xml', "materials/");
 				mat_promise.then((db) =>{
 					model_info_list = db;
 					create_texture_database(model_info_list).then(() =>{
 						console.log(model_info_list)
 						next('head');
-						progress_label.innerHTML = 'Setting up scene and loading model';
 					});
 				});
 				// set up scene with lighting and camera
@@ -108,8 +109,10 @@
 				(function startRendering(){
 					setTimeout(() => {
 						// if model is not null, get slider value, calculate radians of rotation
-						if(model != null)
-							model.setRotationFromAxisAngle(new THREE.Vector3(0,0,1), 2*3.14 * ((current_rotation - 50) / 100.0));
+						for(const[name, model] of Object.entries(global_model)){
+							if(model != null)
+								model.setRotationFromAxisAngle(new THREE.Vector3(0,0,1), 2*3.14 * ((current_rotation - 50) / 100.0));
+						}
 						renderer.setSize(window.innerWidth, window.innerHeight); // TODO: check how inefficient this is
 						renderer.render(scene, camera);
 						startRendering();
@@ -118,14 +121,14 @@
 				screenLoaded();
 			}
 
-			// change models
-			function set_model(new_model){
-				model = new_model.detail.loaderRootNode;
-			}
 
-			function next(type){
-				model_index = (model_index + 1) % Object.keys(model_info_list).length;
-				let cur_model = retrieve_from_dict(model_info_list, model_index);
+			function next(type = 'head'){
+				let map = {'head': model_info_list, 'hair': hair_info_list, 'beard': beard_info_list}
+				let list = map[type];
+				model_indeces[type] = (model_indeces[type] + 1) % Object.keys(list).length;
+				let index = model_indeces[type];
+				let cur_model = retrieve_from_dict(list, index);
+				let model_load = global_model[type];
 				// Describing the checks from left to right:
 				// 1. if a model path is undefined for a given model name, it means the obj was not stored, so skip this model as the file won't exist
 				// 2. if the texture for that model is undefined it means something is wrong with loading. This doesn't mean the texture hasn't been found, it means for some reason
@@ -136,24 +139,26 @@
 					next(type);
 					return;
 				}
-				load_asset(/*'../../' +*/ OBJ_MODEL_PATH + cur_model.model_name).then((result) =>{ // TODO: change path
-					scene.remove(model);
-					set_model(result); 
-					scene.add(model);
+				load_asset(/*'../../' +*/ cur_model.location + cur_model.model_name).then((result) =>{ // TODO: change path
+					scene.remove(model_load);
+					model_load = result.detail.loaderRootNode;
+					scene.add(model_load);
+					global_model[type] = model_load;
 					let p = Promise.resolve(null);
-					let length = (cur_model.textures.length > model.children.length) ? model.children.length : cur_model.textures.length;
+					let length = (cur_model.textures.length > model_load.children.length) ? model_load.children.length : cur_model.textures.length;
 					for(let x = 0; x < length + 1; x++){
 						p = p.then((texture) =>{
 							if(texture)
-								model.children[x - 1].material = new THREE.MeshLambertMaterial({map: texture});
+								model_load.children[x - 1].material = new THREE.MeshLambertMaterial({map: texture});
 							return load_asset(/*'../../' +*/ TEXTURE_PATH + cur_model.textures[x], 'txt');
 						}, (no_texture) =>{
 							return load_asset(/*'../../' +*/ TEXTURE_PATH + cur_model.textures[x], 'txt');
 						});
 					}
 				}, (rej) =>{
-					next('head');
+					//next(type);
 				});
+
 			};
 
 			// unhide camera control elements and hide the progress bar
@@ -236,7 +241,7 @@
 				</tr>
 				<tr>
 					<td>
-						<button class="ui disabled icon button" onclick="">
+						<button class="ui disabled icon button" >
 							<i class="angle left icon"></i>
 						</button>
 					</td>
@@ -244,14 +249,14 @@
 						<div class="label">Beard</div>
 					</td>
 					<td>
-						<button class="ui disabled icon button" onclick="">
+						<button class="ui icon button" onclick="next('beard')">
 							<i class="angle right icon"></i>
 						</button>
 					</td>
 				</tr>
 				<tr>
 					<td>
-						<button class="ui disabled icon button" onclick="">
+						<button class="ui icon button" onclick="">
 							<i class="angle left icon"></i>
 						</button>
 					</td>
@@ -259,7 +264,7 @@
 						<div class="label">Hair</div>
 					</td>
 					<td>
-						<button class="ui disabled icon button" onclick="">
+						<button class="ui icon button" onclick="next('hair')">
 							<i class="angle right icon"></i>
 						</button>
 					</td>

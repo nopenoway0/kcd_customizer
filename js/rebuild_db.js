@@ -26,8 +26,7 @@ function rebuild(root_directory, texture_path){
 	console.log("ROOT_DIR: " + root_directory);
 	console.log("TEX_DIR:" + texture_path);
 	// url for converter
-	const SCTC_URL = 'https://forums.robertsspaceindustries.com/discussion/369524/sc-texture-converter/p1'
-	const SCTC_CONFIG = "verbose = false\nrecursive = false\nclean = true\nmerge_gloss = true\nformat = jpg\n"
+	const SCTC_URL = 'https://forums.robertsspaceindustries.com/discussion/369524/sc-texture-converter/p1', SCTC_CONFIG = "verbose = false\nrecursive = false\nclean = true\nmerge_gloss = true\nformat = jpg\n"
 
 	// make sure that root directory and texture paths have been set, if not passed in through parameter
 	let p = new Promise((res) =>{
@@ -86,8 +85,7 @@ function rebuild(root_directory, texture_path){
 						storeEntries: true
 					});
 					zip.on('ready', () => {
-						let load = Promise.resolve();
-						let count = 0, max = 0;
+						let count = 0, max = 0, load = Promise.resolve();
 						// wasted cycles just for looks, can remove
 						for (const file of Object.values(zip.entries())){
 							if(file.name.match(dds_re))
