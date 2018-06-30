@@ -9,9 +9,10 @@
 	</head>
 	<body>
 		<script>
+			const jQuery = require('jquery');
+			const $ = jQuery;
 			var THREE = require('three');
 			var {ipcRenderer} = require('electron')
-
 		</script>
 		<link rel="stylesheet" type="text/css" href="semantic-ui/semantic.min.css">
 		<script
@@ -35,9 +36,9 @@
 			var loading_bar, progress_label, model_list;
 			var obj_paths = get_file_list(OBJ_MODEL_PATH, /.*\.obj/i);
 			var model_paths = {};
+			var model_info_list;
 			for(let x = 0; x < obj_paths.length; x++)
 				model_paths[obj_paths[x].match(/\/([a-zA-Z0-9_]+)_lod1.obj/i)[1]] = obj_paths[x];
-			console.log(model_paths);
 
 			var material_paths, ROOT_PATH = configuration['ROOT_PATH'];
 			var current_rotation = 50, model = null, model_index = -1, texture_database = null, scene = new THREE.Scene(), screen_loaded = false;
@@ -92,17 +93,13 @@
 				progress_label.innerHTML = 'Creating Texture Database';
 				let mat_promise = create_mtl_database(MATERIAL_PATH + 'character_head.xml', "materials/");
 				mat_promise.then((db) =>{
-					console.log(db);
-					material_paths = db[0];
-					model_list = db[1];
-					create_texture_database(material_paths).then((db)=>{
-						texture_database = db;
-						// start loading of first head
+					model_info_list = db;
+					create_texture_database(model_info_list).then(() =>{
+						console.log(model_info_list)
 						next('head');
 						progress_label.innerHTML = 'Setting up scene and loading model';
 					});
 				});
-				
 				// set up scene with lighting and camera
 				scene.add( light );
 				camera.position.y = .28, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
@@ -118,6 +115,7 @@
 						startRendering();
 					}, DELAY);
 				})();
+				screenLoaded();
 			}
 
 			// change models
@@ -126,67 +124,36 @@
 			}
 
 			function next(type){
-				model_index = (model_index + 1) % model_list.length;
-				console.log('switching to ' + model_list[model_index]);
-
+				model_index = (model_index + 1) % Object.keys(model_info_list).length;
+				let cur_model = retrieve_from_dict(model_info_list, model_index);
 				// Describing the checks from left to right:
 				// 1. if a model path is undefined for a given model name, it means the obj was not stored, so skip this model as the file won't exist
 				// 2. if the texture for that model is undefined it means something is wrong with loading. This doesn't mean the texture hasn't been found, it means for some reason
 				// when loading the database it was never created
 				// 3 & 4. If the SHOW_TEXTURELESS_HEADS is enabled show textureless heads regardless of if the file was loaded otherwise skip this head
-				if(model_paths[model_list[model_index]] == undefined || texture_database['model'][model_list[model_index]] == undefined || (!SHOW_TEXTURLESS_HEADS && !exists(texture_database['model'][model_list[model_index]][0])))
+				if(cur_model == undefined || cur_model.textures == undefined || (!SHOW_TEXTURLESS_HEADS && !exists(cur_model.textures[0])))
 				{
 					next(type);
 					return;
 				}
-				
-				scene.remove(model);
-				load_asset('../../' + model_paths[model_list[model_index]]).then((result) =>{ // TODO: change path
+				load_asset(/*'../../' +*/ OBJ_MODEL_PATH + cur_model.model_name).then((result) =>{ // TODO: change path
+					scene.remove(model);
 					set_model(result); 
-					/**
-					 * Sequentially load all textures in the corresponding index relevant to the current model. load_asset returns
-					 * a promise making sure each asset is loaded sequentially. This is necessary because of the order of the meshes.
-					 * Meshes in each model are broke into [0]head, [1]eyes, [2] mouth, [3]hair(optional)
-					 * , [3 or 4 depending on hair] beard (optional). Thus, each texture must be loaded in order to be peroperly applied
-					 * to the correct mesh.
-					 * notice the ../../. This is because the electron app, after build, starts in the app.asar path
-					 */
-					let p = load_asset(' ../../' + texture_database['model'][model_list[model_index]][0], 'txt'), length = texture_database['model'][model_list[model_index]].length;
-					for(let x = 1; x <= length; x++){
-						p = p.then((texture)=>{
-							loading_bar.style.width = 70 + length / x * 10 + '%'; 
-							model.children[x - 1].material = new THREE.MeshLambertMaterial({map: texture}); 
-							if(x < length)
-								return load_asset('../../' + texture_database['model'][model_list[model_index]][x], 'txt');
-							else
-							{
-								// hide beard and hair and other features
-								var p2 = Promise.resolve();
-								for(let x = 3; x < model.children.length; x++)
-								{
-									p2 = p2.then(() =>{
-										model.children[x].material = new THREE.MeshBasicMaterial({transparent: true, opacity:0})
-										if(x == model.children.length - 1){
-											screenLoaded();
-											scene.add(model)
-										}
-										return Promise.resolve();
-									});
-								}
-							}
-						},(err)=>{
-							console.log(err);
-							if(x < length)
-								return load_asset('../../' + texture_database['model'][model_list[model_index]][x], 'txt');
+					scene.add(model);
+					let p = Promise.resolve(null);
+					let length = (cur_model.textures.length > model.children.length) ? model.children.length : cur_model.textures.length;
+					for(let x = 0; x < length + 1; x++){
+						p = p.then((texture) =>{
+							if(texture)
+								model.children[x - 1].material = new THREE.MeshLambertMaterial({map: texture});
+							return load_asset(/*'../../' +*/ TEXTURE_PATH + cur_model.textures[x], 'txt');
+						}, (no_texture) =>{
+							return load_asset(/*'../../' +*/ TEXTURE_PATH + cur_model.textures[x], 'txt');
 						});
 					}
-					// the model didn't go through the hiding of additional features and thus was never added to the scene. So it gets added here
-					if(model.children.length <= 3)
-					{
-						screenLoaded();
-						scene.add(model);
-					}
-					});;
+				}, (rej) =>{
+					next('head');
+				});
 			};
 
 			// unhide camera control elements and hide the progress bar
@@ -204,11 +171,11 @@
 				if(model_index > 0)
 					model_index -= 1;
 				else if(model_index == 0)
-					model_index = model_list.length;
-				if(model_paths[model_list[model_index]] == undefined || texture_database['model'][model_list[model_index]] == undefined || (!SHOW_TEXTURLESS_HEADS && !exists(texture_database['model'][model_list[model_index]][0])))
+					model_index = Object.keys(model_info_list).length;
+				let cur_model = retrieve_from_dict(model_info_list, model_index);
+				if(cur_model == undefined || cur_model.textures == undefined || (!SHOW_TEXTURLESS_HEADS && !exists(cur_model.textures[0])))
 					prev(type);
-				else
-				{
+				else{
 					model_index -= 1;
 					next(type);
 				}
@@ -218,7 +185,8 @@
 				const HEAD_LOCATION = 'Objects/characters/humans/head/'
 				button.classList.add('loading');
 				// export the head performing sequential steps, hence all the promising
-				let model_name = model_list[model_index];
+				let cur_model = retrieve_from_dict(model_info_list, model_index);
+				let model_name = cur_model.name;
 				let model_filepath = SKIN_MODEL_PATH + model_name + ".skin", mtl_filepath = SKIN_MODEL_PATH + model_name + ".mtl";
 				let paks = ["Heads.pak", "IPL_Heads.pak"];
 
@@ -227,9 +195,6 @@
 					let msg = "exported to: " + EXPORT_DIR;
 					rmdir(EXPORT_DIR)
 					.then(() => mkdir(EXPORT_DIR + 'Data/custom_head/'))
-
-					// check both paks for mtl, if not present check for lod1 version of mtl
-					// TODO: wrong order
 					.then(() => extractFrom(ROOT_PATH + paks[0], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl'))
 					.then(() => Promise.resolve,
 						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl'))
