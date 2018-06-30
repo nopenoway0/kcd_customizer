@@ -5,9 +5,18 @@ require('./js/LoaderSupport.js')
 require('./js/OBJLoader2.js')
 const JSZip = require('jszip')
 const StreamZip = require('node-stream-zip')
+const ModelFactory = require('./js/ModelFactory')
 
-function texture_db_check()
-{
+function retrieve_from_dict(dict, index){
+	for (const[key, value] of Object.entries(dict)){
+		if(index == 0)
+			return value;
+		else 
+			index--;
+	}
+}
+
+function texture_db_check(){
 	if(!fs.existsSync('textures/att_bonus_armor_tag_diff.JPG'))
 		ipcRenderer.send('load_rebuild_window', [ROOT_PATH, TEXTURE_PATH]);
 	else
@@ -29,8 +38,7 @@ function config(){
 	}
 }
 
-function writeAsync(filename, data)
-{
+function writeAsync(filename, data){
 	fs.writeFile(filename, data);
 }
 
@@ -41,24 +49,19 @@ function writeAsync(filename, data)
  * @param  {[type]} mat_path       [path to store materials]
  * @return {[type]}                [results in the list of materials and matching models]
  */
-function create_mtl_database(table_location, mat_path = MATERIAL_PATH)
-{
+function create_mtl_database(table_location, mat_path = MATERIAL_PATH){
 	return new Promise((res, rej) =>{
 		let parser = new xml2js.Parser();
 		let data = fs.readFileSync(table_location);
-		var mtl_list = [], models = [];
+		var model_list = {};
 		parser.parseString(data, (err, data) =>{
 			// add error check?
 			let relevant_data = data.database.table[0]['rows'][0].row;
-			for(let x = 0; x < relevant_data.length; x++)
-			{
+			for(let x = 0; x < relevant_data.length; x++){
 				let model_name = relevant_data[x]['$']['model'], mat_location = mat_path + relevant_data[x]['$'].material + '.mtl';
-				let map_mat_mod = {model: model_name, material_path: mat_location};
-				models.push(model_name);
-				mtl_list.push(map_mat_mod);
-				console.log("storing: " + JSON.stringify(map_mat_mod));
+				model_list[model_name] = ModelFactory.generateModel(OBJ_MODEL_PATH, [], mat_location, model_name + '_lod1.obj', model_name, false);
 			}
-			res([mtl_list, models]);
+			res(model_list);
 		});
 	});
 }
@@ -67,9 +70,9 @@ function create_mtl_database(table_location, mat_path = MATERIAL_PATH)
  * Using the previously created database of materials, this function parses the necessary materials to retrieve which textures are needed
  * for each model head.
  * @param  {[type]} filelist [list of meterials]
- * @return {[type]}          [list of textures sorted by part and model]
+ * @return {[type]}          [list of ModelInfo objects]
  */
-function create_texture_database(filelist){
+function create_texture_database(infolist){
 	return new Promise((resolve, reject) => {
 		let parser = new xml2js.Parser(), re = /.*\/(.*)\..*$/i;
 		/**
@@ -81,21 +84,19 @@ function create_texture_database(filelist){
 		 * etc...
 		 */
 		var model_textures = {'model':{}, 'head':{}, 'eyes':{}, 'mouth':{}, 'beard':{}, 'hair':{}};
-		for(var x = 0; x < filelist.length; x++){
+		for(const[name, model_info] of Object.entries(infolist)){
 			let parse = true, data = null;
 			try{
-				console.log("loading " + filelist[x]);
-				data = fs.readFileSync("resources/app.asar/" + filelist[x].material_path), mats = []; // change for production
-			}catch (err)
-			{
+				console.log("loading " + name + " texture dependencies");
+				data = fs.readFileSync("resources/app.asar/" + model_info.material_path); // change for production
+			}catch (err){
 				console.log("error parsing mtl file" + err);
 				parse = false;
 			}
 			if(parse){
 				parser.parseString(data, (err, data)=>{
 					try{
-						console.log('extracting from: ' + filelist[x].material_path);
-						loading_bar.style.width = ((filelist.length / x) * 90) + '%';
+						console.log('extracting from: ' + model_info.material_path);
 						// extract list of submaterials of mtl
 						let materials = data["Material"]["SubMaterials"][0]["Material"];
 						for(let y = 0; y < materials.length; y++){
@@ -106,23 +107,18 @@ function create_texture_database(filelist){
 							 * located in textures/
 							 */
 							let texture_type = materials[y]['$'].Name, img_name = materials[y]["Textures"][0]["Texture"][0]['$'].File.match(re)[1];
-							if(texture_type == 'head' || texture_type == 'eyes' || texture_type == 'mouth' || texture_type == 'beard' || texture_type == 'hair'){
-								console.log("storing entry: " + 'textures/' + img_name  + ".jpg");
-								mats.push('textures/' + img_name  + ".jpg");
-								model_textures[texture_type]['textures/' + img_name + ".jpg"] = true;
-							}
+							if(texture_type == 'head' || texture_type == 'eyes' || texture_type == 'mouth' || texture_type == 'beard' || texture_type == 'hair')
+								model_info.addTexturePath(img_name  + ".jpg");
 						}
 					} catch(err){
 						console.log(err);
 					}
-					// push our list of materials into our overarching models list.
-					// TODO: increase robustness in case the loading order of materials doesn't match the loading order of models
-					model_textures['model'][filelist[x].model] = mats;	
 			});}
 		}
-		resolve(model_textures);
+		resolve();
 	});
 }
+
 
 /**
  * Takes a directory, regular expression, whether or not to include the path in the output of strings.
@@ -135,8 +131,6 @@ function create_texture_database(filelist){
 function get_file_list(directory, re, include_path = true){
 	directory = directory.match(/(.*)\//i)[1];
 	let files = fs.readdirSync(directory), relevant_files = [];
-	console.log(files);
-	console.log(process.cwd());
 	for(let x = 0; x < files.length; x++){
 		if(files[x].match(re) != null){
 			let tmp = (include_path) ? directory + '/' + files[x] : files[x];
