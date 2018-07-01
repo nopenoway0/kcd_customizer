@@ -82,15 +82,13 @@
 
 				// load hair models
 				let hairfiles = get_file_list('models/hair/', '.obj')
-				for(let x = 0; x < hairfiles.length; x++){	
+				for(let x = 0; x < hairfiles.length; x++)
 					hair_info_list.push(new ModelFactory(hairfiles[x], [], "", "model_name", "name"));
-				}
 
 				// load beard models
 				let beardfiles = get_file_list('models/beards/', '.obj');
-				for(let x = 0; x < beardfiles.length; x++){	
+				for(let x = 0; x < beardfiles.length; x++)
 					beard_info_list.push(new ModelFactory(beardfiles[x], [], "", "model_name", "name"));
-				}
 
 				// load all textures based on materials
 				let mat_promise = create_mtl_database(MATERIAL_PATH + 'character_head.xml', "materials/");
@@ -187,30 +185,41 @@
 			}
 
 			function exportHead(button){
-				const HEAD_LOCATION = 'Objects/characters/humans/head/'
+				const HEAD_LOCATION = 'Objects/characters/humans/head/', HAIR_LOCATION = 'Objects/characters/humans/hair/', INTERNAL_EXPORT_LOCATION = 'Objects/characters/humans/';
 				button.classList.add('loading');
 				// export the head performing sequential steps, hence all the promising
-				let cur_model = retrieve_from_dict(model_info_list, model_index);
-				let model_name = cur_model.name;
+				let cur_model = retrieve_from_dict(model_info_list, model_indeces['head']), cur_hair = retrieve_from_dict(hair_info_list, model_indeces['hair']);
+				let model_name = cur_model.name, hair_name = cur_hair.name;
 				let model_filepath = SKIN_MODEL_PATH + model_name + ".skin", mtl_filepath = SKIN_MODEL_PATH + model_name + ".mtl";
-				let paks = ["Heads.pak", "IPL_Heads.pak"];
+				let paks = ["Heads.pak", "IPL_Heads.pak", "Characters.pak"];
 
 				//TODO: YIKES, rewrite this
 				(() =>{
 					let msg = "exported to: " + EXPORT_DIR;
 					rmdir(EXPORT_DIR)
-					.then(() => mkdir(EXPORT_DIR + 'Data/custom_head/'))
-					.then(() => extractFrom(ROOT_PATH + paks[0], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl'))
+					.then(() => mkdir(EXPORT_DIR + 'Data/custom_head/hair'))
+					.then(() => mkdir(EXPORT_DIR + 'Data/custom_head/head'))
+					.then(() => mkdir(EXPORT_DIR + 'Data/__fastload/'))
+					.then(() => extractFrom(ROOT_PATH + paks[0], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/head/henry.mtl'))
 					.then(() => Promise.resolve,
-						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/henry.mtl'))
-					.then(() => extractFrom(ROOT_PATH + paks[0], HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/henry.skin'))
+						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/head/henry.mtl'))
+					.then(() => extractFrom(ROOT_PATH + paks[0], HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/head/henry.skin'))
 					.then(() => Promise.resolve,
-						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/henry.skin'))
-					.then(() => zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['henry.mtl', 'henry.skin'], HEAD_LOCATION))
-					.then((res) => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'), (rej) => {})
-					.then(() => rmdir(EXPORT_DIR + 'Data/custom_head'))
-					.then(() => Promise.resolve(button.classList.remove('loading')))
-					.then(() => alert(msg));
+						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/head/henry.skin'))
+					// get hair
+					.then(() => extractFrom(ROOT_PATH + paks[2], HAIR_LOCATION + hair_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/hair/hair_henry.skin'))
+					//.then(() => extractFrom(ROOT_PATH + paks[2], HAIR_LOCATION + hair_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/hair/henry_hair.mtl'))
+					
+					.then((res) =>  zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['head/henry.mtl', 'head/henry.skin', 'hair/hair_henry.skin'], INTERNAL_EXPORT_LOCATION),
+						(rej) => zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['head/henry.mtl', 'head/henry.skin', 'hair/hair_henry.skin'], INTERNAL_EXPORT_LOCATION))
+					.then((res) => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'),
+						(rej) => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'))
+					.then(() => rmdir(EXPORT_DIR + 'Data/custom_head'), () => rmdir(EXPORT_DIR + 'Data/custom_head'))
+					.then(() => Promise.resolve(button.classList.remove('loading')),
+						() => Promise.resolve(button.classList.remove('loading')))
+					.then(() => alert(msg), (err) =>{
+						alert("error: " + err);
+					});
 				})()
 			}
 
