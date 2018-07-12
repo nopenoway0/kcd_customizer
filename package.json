@@ -9,18 +9,24 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
-  "build":{
-    "files":["!package.texturebuild.json", "!textures"],
-    "asarUnpack":["**models/**"],
-    "nsis":{
+  "build": {
+    "files": [
+      "!package.texturebuild.json",
+      "!textures"
+    ],
+    "asarUnpack": [
+      "**models/**"
+    ],
+    "nsis": {
       "oneClick": false,
       "allowElevation": false,
-      "allowToChangeInstallationDirectory":true
+      "allowToChangeInstallationDirectory": true
     }
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "binary-file": "^0.2.1",
     "electron": "^2.0.2",
     "electron-builder": "^20.16.0",
     "fs-extra": "^6.0.1",
