@@ -20,6 +20,7 @@
   			integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
   			crossorigin="anonymous"></script>
 		<script src="semantic-ui/semantic.min.js"></script>
+		<script src="js/GLTFExporter.js"></script>
 		<script src="js/LoaderSupport.js"></script>
 		<script src="js/OBJLoader2.js"></script>
 		<script src="js/MTLLoader.js"></script>
@@ -35,10 +36,18 @@
 			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'], TEXTURE_PATH = configuration['TEXTURE_PATH'];
 			var ROOT_PATH = configuration['ROOT_PATH'];
 
-			var material_paths, model_info_list, hair_info_list = [], beard_info_list = [];
+			var material_paths, model_info_list, hair_info_list = [], beard_info_list = [], model = null;
 			var current_rotation = 50, model_indeces = {'head': -1, 'hair': -1, 'beard': -1}, texture_database = null, scene = new THREE.Scene(), screen_loaded = false;
 			var global_model = {'head': null, 'hair': null, 'beard': null};
 			
+			function performMorph(model_group, type, value){
+				if(model_group != null && model_group != undefined){
+					for(let x = 0; x < model_group.children.length; x++){
+						model_group.children[x].morphTargetInfluences[model_group.children[x].morphTargetDictionary[type]] = (value / 100) 
+					}	
+				}
+			}
+
 			// set slide to rotate displayed model
 			window.onload = () => {
 				ipcRenderer.on('request-paths', (event, data) =>{
@@ -50,7 +59,19 @@
 				slider.oninput = function() {
 					current_rotation = this.value;
 				};
-				
+
+				document.getElementById("morph-forehead").oninput = function(){
+					performMorph(model, "Brow Depth", this.value);
+				};
+
+				document.getElementById("morph-jaw-height").oninput = function(){
+					performMorph(model, "Jaw Height", this.value);
+				};
+
+				document.getElementById("morph-jaw-width").oninput = function(){
+					performMorph(model, "Jaw", this.value);
+				};
+
 				// capture loaded root path from setup window. Store it in this runtime and write it to the configuration file
 				// then begin initialization. Otherwise just start initializating
 				if(ROOT_PATH.length == 0){
@@ -79,37 +100,18 @@
 				var renderer = new THREE.WebGLRenderer();
 				renderer.setSize( window.innerWidth, window.innerHeight);
 				document.body.appendChild( renderer.domElement );
-
-				// load hair models
-				let hairfiles = get_file_list('models/hair/', '.obj')
-				for(let x = 0; x < hairfiles.length; x++)
-					hair_info_list.push(new ModelFactory(hairfiles[x], [], "", "model_name", "name"));
-
-				// load beard models
-				let beardfiles = get_file_list('models/beards/', '.obj');
-				for(let x = 0; x < beardfiles.length; x++)
-					beard_info_list.push(new ModelFactory(beardfiles[x], [], "", "model_name", "name"));
-
-				// load all textures based on materials
-				let mat_promise = create_mtl_database(MATERIAL_PATH + 'character_head.xml', "materials/");
-				mat_promise.then((db) =>{
-					model_info_list = db;
-					create_texture_database(model_info_list).then(() =>{
-						console.log(model_info_list)
-						next('head');
-					});
-				});
-				// set up scene with lighting and camera
+				next('head');
 				scene.add( light );
 				camera.position.y = .28, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
-
+				//camera.position.y = 0, camera.lookAt(0,0,0), camera.position.z = 7, camera.rotateZ(3.14);
 				// start rendering at a set delay speed
 				(function startRendering(){
 					setTimeout(() => {
 						// if model is not null, get slider value, calculate radians of rotation
-						for(const[name, model] of Object.entries(global_model)){
-							if(model != null)
-								model.setRotationFromAxisAngle(new THREE.Vector3(0,0,1), 2*3.14 * ((current_rotation - 50) / 100.0));
+						if(model != null && model != undefined){
+							for(let x = 0; x < model.children.length; x++)
+								//model.children[x].setRotationFromAxisAngle(new THREE.Vector3(0,1,0), 2*3.14 * ((current_rotation - 50) / 100.0));
+								model.children[x].setRotationFromAxisAngle(new THREE.Vector3(0,1,0), 2*3.14 * ((current_rotation - 50) / 100.0));
 						}
 						renderer.setSize(window.innerWidth, window.innerHeight); // TODO: check how inefficient this is
 						renderer.render(scene, camera);
@@ -121,40 +123,12 @@
 
 
 			function next(type = 'head'){
-				let map = {'head': model_info_list, 'hair': hair_info_list, 'beard': beard_info_list}
-				let list = map[type];
-				model_indeces[type] = (model_indeces[type] + 1) % Object.keys(list).length;
-				let index = model_indeces[type];
-				let cur_model = retrieve_from_dict(list, index);
-				let model_load = global_model[type];
-				// Describing the checks from left to right:
-				// 1. if a model path is undefined for a given model name, it means the obj was not stored, so skip this model as the file won't exist
-				// 2. if the texture for that model is undefined it means something is wrong with loading. This doesn't mean the texture hasn't been found, it means for some reason
-				// when loading the database it was never created
-				// 3 & 4. If the SHOW_TEXTURELESS_HEADS is enabled show textureless heads regardless of if the file was loaded otherwise skip this head
-				if(cur_model == undefined || cur_model.textures == undefined || (!SHOW_TEXTURLESS_HEADS && !exists(cur_model.textures[0])))
-				{
-					next(type);
-					return;
-				}
-				load_asset(/*'../../' +*/ cur_model.location + cur_model.model_name).then((result) =>{ // TODO: change path
-					scene.remove(model_load);
-					model_load = result.detail.loaderRootNode;
-					scene.add(model_load);
-					global_model[type] = model_load;
-					let p = Promise.resolve(null);
-					let length = (cur_model.textures.length > model_load.children.length) ? model_load.children.length : cur_model.textures.length;
-					for(let x = 0; x < length + 1; x++){
-						p = p.then((texture) =>{
-							if(texture)
-								model_load.children[x - 1].material = new THREE.MeshLambertMaterial({map: texture});
-							return load_asset(/*'../../' +*/ TEXTURE_PATH + cur_model.textures[x], 'txt');
-						}, (no_texture) =>{
-							return load_asset(/*'../../' +*/ TEXTURE_PATH + cur_model.textures[x], 'txt');
-						});
-					}
-				}, (rej) =>{
-					//next(type);
+				//load_asset(/*'../../' +*/ OBJ_MODEL_PATH + 'henry.gltf', 'gltf').then((result) =>{
+				load_asset(/*'../../' +*/ OBJ_MODEL_PATH + 'henry.gltf', 'gltf').then((result) =>{
+					console.log("result");
+					console.log(result);
+					model = result.scene.children[0];
+					scene.add(result.scene.children[0]);
 				});
 
 			};
@@ -185,7 +159,80 @@
 			}
 
 			function exportHead(button){
-				const HEAD_LOCATION = 'Objects/characters/humans/head/', HAIR_LOCATION = 'Objects/characters/humans/hair/', INTERNAL_EXPORT_LOCATION = 'Objects/characters/humans/';
+			
+				// update vertices to morph poisition?
+				model.dynamic = true;
+				var morphsum = []
+				let pos = [];
+				var position_vectors = [];
+				for(let m = 0; m < model.children.length; m++){
+					let mesh = model.children[m].geometry;
+					morphsum.push([]);
+					position_vectors.push([])
+					let position = mesh.attributes.position;
+					for(let x = 0; x < position.array.length; x+=3)
+					{
+						position_vectors[m].push(new THREE.Vector3(position.array[x],position.array[x + 1],position.array[x + 2]));
+						morphsum[m].push(new THREE.Vector3());
+					}
+				}
+
+
+				// apply first morph target
+				for(let m_index = 0; m_index < model.children.length; m_index++){
+					let mesh = model.children[m_index].geometry;
+					for(let m = 0; m < mesh.morphAttributes.position.length; m++){
+						let influence = model.children[m_index].morphTargetInfluences[m];
+						for(let x = 0; x < mesh.morphAttributes.position[m].array.length; x += 3){
+							morphPositions = new THREE.Vector3(mesh.morphAttributes.position[m].array[x], mesh.morphAttributes.position[m].array[x + 1],mesh.morphAttributes.position[m].array[x + 2]);
+							morphsum[m_index][x / 3] = morphsum[m_index][x / 3].add(morphPositions.sub(position_vectors[m_index][x / 3]).multiplyScalar(influence)); 
+						}
+					}
+				}
+
+				console.log(morphsum);
+
+				// morph += (morphTarget - pos) * Influence
+				// pos += morph to transfer new coordinates to physical verts
+				for(let m = 0; m < model.children.length; m++){
+					let mesh = model.children[m].geometry;
+					for(let x = 0; x < mesh.attributes.position.array.length; x+= 3){
+						mesh.attributes.position.array[x] = position_vectors[m][x / 3].x  + morphsum[m][x / 3].x;
+						mesh.attributes.position.array[x + 1] = position_vectors[m][x / 3].y + morphsum[m][x / 3].y;
+						mesh.attributes.position.array[x + 2] = position_vectors[m][x / 3].z + morphsum[m][x / 3].z;
+					}
+					mesh.attributes.position.needsUpdate = true;
+				}
+
+				// test rotate because of rotation caused by gltf format
+				
+				for(let m = 0; m < model.children.length; m++){
+					let mesh = model.children[m].geometry;
+					for(let x = 0; x < mesh.attributes.position.array.length; x+= 3){
+						mesh.attributes.position.array[x] = mesh.attributes.position.array[x] * -1;
+						mesh.attributes.position.array[x + 1] = mesh.attributes.position.array[x + 1] * - 1;
+						mesh.attributes.position.array[x + 2] = mesh.attributes.position.array[x + 2];
+					}
+					mesh.attributes.position.needsUpdate = true;
+				}
+
+
+
+				var verts = "";
+				for(let x = 0; x < model.children.length; x++){
+					for(let y = 0; y < model.children[x].geometry.attributes.position.array.length - 3; y+=3){
+						verts += "v " + model.children[x].geometry.attributes.position.array[y] + " " + model.children[x].geometry.attributes.position.array[y + 1] + " " + model.children[x].geometry.attributes.position.array[y + 2] + "\n";
+					}
+				}
+				fs.writeFileSync("henry.verts", verts);
+
+				let exporter = new THREE.GLTFExporter();
+				exporter.parse(model, (parsed) =>{
+					fs.writeFileSync("exported.gltf", JSON.stringify(parsed));
+				})
+
+				// the transformed value
+				/*const HEAD_LOCATION = 'Objects/characters/humans/head/', HAIR_LOCATION = 'Objects/characters/humans/hair/', INTERNAL_EXPORT_LOCATION = 'Objects/characters/humans/';
 				button.classList.add('loading');
 				// export the head performing sequential steps, hence all the promising
 				let cur_model = retrieve_from_dict(model_info_list, model_indeces['head']), cur_hair = retrieve_from_dict(hair_info_list, model_indeces['hair']);
@@ -208,7 +255,6 @@
 						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/head/henry.skin'))
 					// get hair
 					.then(() => extractFrom(ROOT_PATH + paks[2], HAIR_LOCATION + hair_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/hair/hair_henry.skin'))
-					//.then(() => extractFrom(ROOT_PATH + paks[2], HAIR_LOCATION + hair_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/hair/henry_hair.mtl'))
 					
 					.then((res) =>  zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['head/henry.mtl', 'head/henry.skin', 'hair/hair_henry.skin'], INTERNAL_EXPORT_LOCATION),
 						(rej) => zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['head/henry.mtl', 'head/henry.skin', 'hair/hair_henry.skin'], INTERNAL_EXPORT_LOCATION))
@@ -220,7 +266,7 @@
 					.then(() => alert(msg), (err) =>{
 						alert("error: " + err);
 					});
-				})()
+				})()*/
 			}
 
 		</script>
@@ -301,6 +347,35 @@
 						</div>
 					</td>
 					<td/>
+				</tr>
+			</table>
+
+
+<div id="morph-controls" style="border-style: solid; border-color: orange; border-width: 2px; border-radius: 10px; background-color: white; width: 200px; position: absolute; top: 200px;">
+			<table >
+				<tr>
+					<td>
+						<input style="width:100%;" type="range" min="1" max="100" value="0" class="slider" id="morph-forehead">
+					</td>
+					<td>
+						<div class="label">Forehead</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input style="width:100%;" type="range" min="1" max="100" value="0" class="slider" id="morph-jaw-height">
+					</td>
+					<td>
+						<div class="label">Jaw Height</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input style="width:100%;" type="range" min="1" max="100" value="0" class="slider" id="morph-jaw-width">
+					</td>
+					<td>
+						<div class="label">Jaw Width</div>
+					</td>
 				</tr>
 			</table>
 		</div>

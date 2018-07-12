@@ -3,6 +3,7 @@ const xml2js = require('xml2js')
 var THREE = require('three') // TODO: check if libraries already included
 require('./js/LoaderSupport.js')
 require('./js/OBJLoader2.js')
+require('./js/GLTFLoader.js')
 const JSZip = require('jszip')
 const StreamZip = require('node-stream-zip')
 const ModelFactory = require('./js/ModelFactory')
@@ -149,13 +150,18 @@ function get_file_list(directory, re, include_path = true){
  */
 function load_asset(filename, type = 'obj'){
 	console.log('loading ' + filename);
-	const loader_type = {'obj': THREE.OBJLoader2, 'mtl': THREE.MTLLoader, 'txt': THREE.TextureLoader};
+	const loader_type = {'obj': THREE.OBJLoader2, 'mtl': THREE.MTLLoader, 'txt': THREE.TextureLoader, 'gltf': THREE.GLTFLoader};
 	return new Promise((resolve, reject) => {
 		let loader = new loader_type[type]();
 		loader.load(filename, (object) =>{
 			console.log("successfully loaded " + filename);
-			resolve(object);
+			console.log(object);
+			if(type == 'obj')
+				resolve(object.detail.loaderRootNode)
+			else
+				resolve(object);
 		}, null, (err)=>{
+			console.log("error: " + err);
 			reject("loading " + filename + " FAILED: " + err);
 		});
 	});
