@@ -1,3 +1,5 @@
+const BinaryFile = require('binary-file')
+
 function applyMorphs(model){
 	// update vertices to morph poisition?
 	model.dynamic = true;
@@ -48,4 +50,46 @@ function applyMorphs(model){
 		}
 		mesh.attributes.position.needsUpdate = true;
 	}
+}
+
+function retrieve_from_dict(dict, index){
+	for (const[key, value] of Object.entries(dict)){
+		if(index == 0)
+			return value;
+		else 
+			index--;
+	}
+}
+
+function store_vertices(list, model){
+	for(let x = 0; x < model.children.length; x++){
+		let mesh = model.children[x].geometry;
+		for(let y = 0; y < mesh.attributes.position.array.length; y++)
+			list.push(mesh.attributes.position.array[y]);
+	}
+}
+/**
+ * Takes the vertices from an array (intended to be the original coordinates of the model before any transforms)
+ * and stores them in the following order [original point][new point]... throughout the file
+ * @param  {[type]} og_verts [list of original vertices]
+ * @param  {[type]} model    [parent of meshes that contain the new vertices]
+ */
+function writeVertsFile(og_verts, model){
+	let LE = (os.endianness() == 'LE') ? true : false;
+	let bin = new BinaryFile("file.vert", "w", LE);
+	bin.open().then(()=>{
+		(async function(){
+			for(let m = 0; m < model.children.length; m++){
+				let mesh = model.children[m].geometry;
+				for(let x = 0; x < mesh.attributes.position.array.length; x++){
+					if((x + 1) % 3 == 0)
+						og_verts[0] = og_verts[0] * -1;
+					let bytes = await bin.writeFloat(og_verts.shift());
+					bytes = await bin.writeFloat(mesh.attributes.position.array[x]);
+				}
+			}
+			console.log("finished");
+			return Promise.resolve()
+		})().then(() => bin.close());
+	})
 }

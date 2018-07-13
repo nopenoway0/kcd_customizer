@@ -25,250 +25,9 @@
 		<script src="js/LoaderSupport.js"></script>
 		<script src="js/OBJLoader2.js"></script>
 		<script src="js/MTLLoader.js"></script>
-		<script src="js/setup_functions.js"></script>
+		<script src="js/index.js"></script>
 		<script src="js/first_time_setup.js"></script>
 		<script src="js/utilities.js"></script>
-		<script>
-			const CONFIG_PATH = "config.json";
-			const BinaryFile = require('binary-file')
-			const os = require('os')
-			let configuration = config();
-			// run initial setup
-			// set where to find default game models and mats, set fps, and necessary delay to achieve delay
-			// and exported model directory
-			const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
-			const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'], TEXTURE_PATH = configuration['TEXTURE_PATH'];
-			var ROOT_PATH = configuration['ROOT_PATH'];
-
-			var material_paths, model_info_list, hair_info_list = [], beard_info_list = [], model = null;
-			var current_rotation = 50, model_indeces = {'head': -1, 'hair': -1, 'beard': -1}, texture_database = null, scene = new THREE.Scene(), screen_loaded = false;
-			var global_model = {'head': null, 'hair': null, 'beard': null};
-			
-			function performMorph(model_group, type, value){
-				if(model_group != null && model_group != undefined){
-					for(let x = 0; x < model_group.children.length; x++){
-						model_group.children[x].morphTargetInfluences[model_group.children[x].morphTargetDictionary[type]] = (value - 50) / 50 
-					}	
-				}
-			}
-			// TODO: change 1 morph to CPU computation, limit has been reached
-			// set slide to rotate displayed model
-			window.onload = () => {
-				ipcRenderer.on('request-paths', (event, data) =>{
-					console.log("request paths received sending: " + [ROOT_PATH, TEXTURE_PATH])
-					event.sender.send('paths', [ROOT_PATH, TEXTURE_PATH]);
-				});
-
-				let slider = document.getElementById("rotate-head");
-				slider.oninput = function() {
-					current_rotation = this.value;
-				};
-
-				document.getElementById("morph-forehead").oninput = function(){
-					performMorph(model, "Brow Depth", this.value);
-				};
-
-				document.getElementById("morph-jaw-height").oninput = function(){
-					performMorph(model, "Jaw Height", this.value);
-				};
-
-				document.getElementById("morph-jaw-width").oninput = function(){
-					performMorph(model, "Jaw", this.value);
-				};
-
-				document.getElementById("morph-face-width").oninput = function(){
-					performMorph(model, "Face Width", this.value);
-				};
-
-				document.getElementById("morph-face-height").oninput = function(){
-					performMorph(model, "Face Height", this.value);
-				};
-
-				document.getElementById("morph-nose-depth").oninput = function(){
-					performMorph(model, "Nose Depth", this.value);
-				};
-
-				document.getElementById("morph-nose-width").oninput = function(){
-					performMorph(model, "Nose Width", this.value);
-				};
-
-				document.getElementById("morph-chin-height").oninput = function(){
-					performMorph(model, "Chin Height", this.value);
-				};
-
-				document.getElementById("morph-chin-depth").oninput = function(){
-					performMorph(model, "Chin Depth", this.value);
-				};
-				// capture loaded root path from setup window. Store it in this runtime and write it to the configuration file
-				// then begin initialization. Otherwise just start initializating
-				if(ROOT_PATH.length == 0){
-					ipcRenderer.on('directory_set', (sender, path) =>{
-						ROOT_PATH = path;
-						configuration['ROOT_PATH'] = ROOT_PATH;
-						writeAsync(CONFIG_PATH, JSON.stringify(configuration));
-					});
-					first_time_setup().then(() =>{
-						texture_db_check();
-					});
-				}
-				else
-					texture_db_check();
-
-				ipcRenderer.on('resume', (sender, data) =>{
-					init();
-				})
-			};
-
-			// start initialization for rendering
-			function init(){
-				// create basics for scene
-				var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
-				var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
-				var renderer = new THREE.WebGLRenderer();
-				renderer.setSize( window.innerWidth, window.innerHeight);
-				document.body.appendChild( renderer.domElement );
-				next('head');
-				scene.add( light );
-				camera.position.y = .28, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
-				//camera.position.y = 0, camera.lookAt(0,0,0), camera.position.z = 7, camera.rotateZ(3.14);
-				// start rendering at a set delay speed
-				(function startRendering(){
-					setTimeout(() => {
-						// if model is not null, get slider value, calculate radians of rotation
-						if(model != null && model != undefined){
-							for(let x = 0; x < model.children.length; x++)
-								model.children[x].setRotationFromAxisAngle(new THREE.Vector3(0,1,0), 2*3.14 * ((current_rotation - 50) / 100.0));
-						}
-						renderer.setSize(window.innerWidth, window.innerHeight); // TODO: check how inefficient this is
-						renderer.render(scene, camera);
-						startRendering();
-					}, DELAY);
-				})();
-				screenLoaded();
-			}
-
-
-			function next(type = 'head'){
-				//load_asset(/*'../../' +*/ OBJ_MODEL_PATH + 'henry.gltf', 'gltf').then((result) =>{
-				load_asset(/*'../../' +*/ OBJ_MODEL_PATH + 'henry.gltf', 'gltf').then((result) =>{
-					console.log("result");
-					console.log(result);
-					model = result.scene.children[0];
-					scene.add(result.scene.children[0]);
-				});
-
-			};
-
-			// unhide camera control elements and hide the progress bar
-			function screenLoaded(){
-				if(screen_loaded)
-					return;
-				document.getElementById('loading-bar').style.width = 100 + '%';
-				document.getElementById('loading-div').style.display = "none";
-				document.getElementById('camera-controls').hidden = false;
-				document.getElementById('part-controls').hidden = false;
-				screen_loaded = true;
-			}
-
-			function prev(type){
-				if(model_index > 0)
-					model_index -= 1;
-				else if(model_index == 0)
-					model_index = Object.keys(model_info_list).length;
-				let cur_model = retrieve_from_dict(model_info_list, model_index);
-				if(cur_model == undefined || cur_model.textures == undefined || (!SHOW_TEXTURLESS_HEADS && !exists(cur_model.textures[0])))
-					prev(type);
-				else{
-					model_index -= 1;
-					next(type);
-				}
-			}
-
-			function exportHead(button){
-				var og_verts = [];
-				for(let x = 0; x < model.children.length; x++){
-					let mesh = model.children[x].geometry;
-					for(let y = 0; y < mesh.attributes.position.array.length; y++)
-						og_verts.push(mesh.attributes.position.array[y]);
-				}
-				applyMorphs(model);
-
-				// test rotate because of rotation caused by gltf format
-				for(let m = 0; m < model.children.length; m++){
-					let mesh = model.children[m].geometry;
-					for(let x = 0; x < mesh.attributes.position.array.length; x+= 3){
-						let tmp = mesh.attributes.position.array[x + 1];
-						//mesh.attributes.position.array[x]
-						mesh.attributes.position.array[x + 1] = mesh.attributes.position.array[x + 2] * -1;
-						mesh.attributes.position.array[x + 2] = tmp;
-					}
-					mesh.attributes.position.needsUpdate = true;
-				}
-
-				/*let exporter = new THREE.GLTFExporter();
-				exporter.parse(model, (parsed) =>{
-					fs.writeFileSync("exported.gltf", JSON.stringify(parsed));
-				})*/
-
-				console.log(model.children);
-
-				
-				let LE = (os.endianness() == 'LE') ? true : false;
-				let bin = new BinaryFile("file.vert", "w", LE);
-				bin.open().then(()=>{
-					(async function(){
-						for(let m = 0; m < model.children.length; m++){
-							let mesh = model.children[m].geometry;
-							for(let x = 0; x < mesh.attributes.position.array.length; x++){
-								if((x + 1) % 3 == 0)
-									og_verts[0] = og_verts[0] * -1;
-								let bytes = await bin.writeFloat(og_verts.shift());
-								bytes = await bin.writeFloat(mesh.attributes.position.array[x]);
-							}
-						}
-						console.log("finished");
-						return Promise.resolve()
-					})().then(() => bin.close());
-				})
-				// the transformed value
-				/*const HEAD_LOCATION = 'Objects/characters/humans/head/', HAIR_LOCATION = 'Objects/characters/humans/hair/', INTERNAL_EXPORT_LOCATION = 'Objects/characters/humans/';
-				button.classList.add('loading');
-				// export the head performing sequential steps, hence all the promising
-				let cur_model = retrieve_from_dict(model_info_list, model_indeces['head']), cur_hair = retrieve_from_dict(hair_info_list, model_indeces['hair']);
-				let model_name = cur_model.name, hair_name = cur_hair.name;
-				let model_filepath = SKIN_MODEL_PATH + model_name + ".skin", mtl_filepath = SKIN_MODEL_PATH + model_name + ".mtl";
-				let paks = ["Heads.pak", "IPL_Heads.pak", "Characters.pak"];
-
-				//TODO: YIKES, rewrite this
-				(() =>{
-					let msg = "exported to: " + EXPORT_DIR;
-					rmdir(EXPORT_DIR)
-					.then(() => mkdir(EXPORT_DIR + 'Data/custom_head/hair'))
-					.then(() => mkdir(EXPORT_DIR + 'Data/custom_head/head'))
-					.then(() => mkdir(EXPORT_DIR + 'Data/__fastload/'))
-					.then(() => extractFrom(ROOT_PATH + paks[0], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/head/henry.mtl'))
-					.then(() => Promise.resolve,
-						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".mtl",  './' + EXPORT_DIR + 'Data/custom_head/head/henry.mtl'))
-					.then(() => extractFrom(ROOT_PATH + paks[0], HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/head/henry.skin'))
-					.then(() => Promise.resolve,
-						() => extractFrom(ROOT_PATH + paks[1], HEAD_LOCATION + model_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/head/henry.skin'))
-					// get hair
-					.then(() => extractFrom(ROOT_PATH + paks[2], HAIR_LOCATION + hair_name + ".skin",  './' + EXPORT_DIR + 'Data/custom_head/hair/hair_henry.skin'))
-					
-					.then((res) =>  zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['head/henry.mtl', 'head/henry.skin', 'hair/hair_henry.skin'], INTERNAL_EXPORT_LOCATION),
-						(rej) => zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + 'Data/kcd_custom_head.pak', ['head/henry.mtl', 'head/henry.skin', 'hair/hair_henry.skin'], INTERNAL_EXPORT_LOCATION))
-					.then((res) => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'),
-						(rej) => copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak'))
-					.then(() => rmdir(EXPORT_DIR + 'Data/custom_head'), () => rmdir(EXPORT_DIR + 'Data/custom_head'))
-					.then(() => Promise.resolve(button.classList.remove('loading')),
-						() => Promise.resolve(button.classList.remove('loading')))
-					.then(() => alert(msg), (err) =>{
-						alert("error: " + err);
-					});
-				})()*/
-			}
-
-		</script>
 		<div id="camera-controls" style="width:100%" hidden="true">
 			<input style="width:100%; position: absolute; top: 95%" type="range" min="1" max="100" value="50" class="slider" id="rotate-head">
 		</div>
@@ -280,7 +39,7 @@
 			<table >
 				<tr>
 					<td>
-						<button class="ui icon button" onclick="prev('head')">
+						<button class="ui icon button">
 							<i class="angle left icon"></i>
 						</button>
 					</td>
@@ -288,7 +47,7 @@
 						<div class="label">Head</div>
 					</td>
 					<td>
-						<button class="ui icon button" onclick="next('head')">
+						<button class="ui icon button" >
 							<i class="angle right icon"></i>
 						</button>
 					</td>
@@ -303,7 +62,7 @@
 						<div class="label">Beard</div>
 					</td>
 					<td>
-						<button class="ui icon button" onclick="next('beard')">
+						<button class="ui icon button">
 							<i class="angle right icon"></i>
 						</button>
 					</td>
@@ -318,14 +77,14 @@
 						<div class="label">Hair</div>
 					</td>
 					<td>
-						<button class="ui icon button" onclick="next('hair')">
+						<button class="ui icon button">
 							<i class="angle right icon"></i>
 						</button>
 					</td>
 				</tr>
 				<tr>
 					<td>
-						<button class="ui disabled icon button" onclick="">
+						<button class="ui disabled icon button">
 							<i class="angle left icon"></i>
 						</button>
 					</td>
@@ -333,7 +92,7 @@
 						<div class="label">Eyes</div>
 					</td>
 					<td>
-						<button class="ui disabled icon button" onclick="">
+						<button class="ui disabled icon button">
 							<i class="angle right icon"></i>
 						</button>
 					</td>
