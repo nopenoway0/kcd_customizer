@@ -60,7 +60,7 @@ function create_mtl_database(table_location, mat_path = MATERIAL_PATH){
 			let relevant_data = data.database.table[0]['rows'][0].row;
 			for(let x = 0; x < relevant_data.length; x++){
 				let model_name = relevant_data[x]['$']['model'], mat_location = mat_path + relevant_data[x]['$'].material + '.mtl';
-				model_list[model_name] = ModelFactory.generateModel(OBJ_MODEL_PATH, [], mat_location, model_name + '_lod1.obj', model_name, false);
+				model_list[model_name] = ModelFactory.generateModel(OBJ_MODEL_PATH, [], mat_location, model_name, model_name, false);
 			}
 			res(model_list);
 		});
@@ -89,7 +89,7 @@ function create_texture_database(infolist){
 			let parse = true, data = null;
 			try{
 				console.log("loading " + name + " texture dependencies");
-				data = fs.readFileSync("resources/app.asar/" + model_info.material_path); // change for production
+				data = fs.readFileSync(model_info.material_path); // change for production
 			}catch (err){
 				console.log("error parsing mtl file" + err);
 				parse = false;

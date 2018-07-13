@@ -27,6 +27,7 @@
 		<script src="js/MTLLoader.js"></script>
 		<script src="js/setup_functions.js"></script>
 		<script src="js/first_time_setup.js"></script>
+		<script src="js/utilities.js"></script>
 		<script>
 			const CONFIG_PATH = "config.json";
 			const BinaryFile = require('binary-file')
@@ -46,11 +47,11 @@
 			function performMorph(model_group, type, value){
 				if(model_group != null && model_group != undefined){
 					for(let x = 0; x < model_group.children.length; x++){
-						model_group.children[x].morphTargetInfluences[model_group.children[x].morphTargetDictionary[type]] = (value / 100) 
+						model_group.children[x].morphTargetInfluences[model_group.children[x].morphTargetDictionary[type]] = (value - 50) / 50 
 					}	
 				}
 			}
-
+			// TODO: change 1 morph to CPU computation, limit has been reached
 			// set slide to rotate displayed model
 			window.onload = () => {
 				ipcRenderer.on('request-paths', (event, data) =>{
@@ -75,6 +76,29 @@
 					performMorph(model, "Jaw", this.value);
 				};
 
+				document.getElementById("morph-face-width").oninput = function(){
+					performMorph(model, "Face Width", this.value);
+				};
+
+				document.getElementById("morph-face-height").oninput = function(){
+					performMorph(model, "Face Height", this.value);
+				};
+
+				document.getElementById("morph-nose-depth").oninput = function(){
+					performMorph(model, "Nose Depth", this.value);
+				};
+
+				document.getElementById("morph-nose-width").oninput = function(){
+					performMorph(model, "Nose Width", this.value);
+				};
+
+				document.getElementById("morph-chin-height").oninput = function(){
+					performMorph(model, "Chin Height", this.value);
+				};
+
+				document.getElementById("morph-chin-depth").oninput = function(){
+					performMorph(model, "Chin Depth", this.value);
+				};
 				// capture loaded root path from setup window. Store it in this runtime and write it to the configuration file
 				// then begin initialization. Otherwise just start initializating
 				if(ROOT_PATH.length == 0){
@@ -113,7 +137,6 @@
 						// if model is not null, get slider value, calculate radians of rotation
 						if(model != null && model != undefined){
 							for(let x = 0; x < model.children.length; x++)
-								//model.children[x].setRotationFromAxisAngle(new THREE.Vector3(0,1,0), 2*3.14 * ((current_rotation - 50) / 100.0));
 								model.children[x].setRotationFromAxisAngle(new THREE.Vector3(0,1,0), 2*3.14 * ((current_rotation - 50) / 100.0));
 						}
 						renderer.setSize(window.innerWidth, window.innerHeight); // TODO: check how inefficient this is
@@ -162,60 +185,13 @@
 			}
 
 			function exportHead(button){
-			
-				// update vertices to morph poisition?
-				model.dynamic = true;
-				var morphsum = []
-				let pos = [];
-				var position_vectors = [];
-				for(let m = 0; m < model.children.length; m++){
-					let mesh = model.children[m].geometry;
-					morphsum.push([]);
-					position_vectors.push([])
-					let position = mesh.attributes.position;
-					for(let x = 0; x < position.array.length; x+=3)
-					{
-						position_vectors[m].push(new THREE.Vector3(position.array[x],position.array[x + 1],position.array[x + 2]));
-						morphsum[m].push(new THREE.Vector3());
-					}
-				}
-
-
-				// apply first morph target
-				for(let m_index = 0; m_index < model.children.length; m_index++){
-					let mesh = model.children[m_index].geometry;
-					for(let m = 0; m < mesh.morphAttributes.position.length; m++){
-						let influence = model.children[m_index].morphTargetInfluences[m];
-						for(let x = 0; x < mesh.morphAttributes.position[m].array.length; x += 3){
-							morphPositions = new THREE.Vector3(mesh.morphAttributes.position[m].array[x], mesh.morphAttributes.position[m].array[x + 1],mesh.morphAttributes.position[m].array[x + 2]);
-							morphsum[m_index][x / 3] = morphsum[m_index][x / 3].add(morphPositions.sub(position_vectors[m_index][x / 3]).multiplyScalar(influence)); 
-						}
-					}
-				}
-
-				console.log(morphsum);
-
-				// store og verts
 				var og_verts = [];
 				for(let x = 0; x < model.children.length; x++){
 					let mesh = model.children[x].geometry;
 					for(let y = 0; y < mesh.attributes.position.array.length; y++)
 						og_verts.push(mesh.attributes.position.array[y]);
 				}
-
-				console.log(og_verts);
-
-				// morph += (morphTarget - pos) * Influence
-				// pos += morph to transfer new coordinates to physical verts
-				for(let m = 0; m < model.children.length; m++){
-					let mesh = model.children[m].geometry;
-					for(let x = 0; x < mesh.attributes.position.array.length; x+= 3){
-						mesh.attributes.position.array[x] = position_vectors[m][x / 3].x  + morphsum[m][x / 3].x;
-						mesh.attributes.position.array[x + 1] = position_vectors[m][x / 3].y + morphsum[m][x / 3].y;
-						mesh.attributes.position.array[x + 2] = position_vectors[m][x / 3].z + morphsum[m][x / 3].z;
-					}
-					mesh.attributes.position.needsUpdate = true;
-				}
+				applyMorphs(model);
 
 				// test rotate because of rotation caused by gltf format
 				for(let m = 0; m < model.children.length; m++){
@@ -229,14 +205,14 @@
 					mesh.attributes.position.needsUpdate = true;
 				}
 
-				let exporter = new THREE.GLTFExporter();
+				/*let exporter = new THREE.GLTFExporter();
 				exporter.parse(model, (parsed) =>{
 					fs.writeFileSync("exported.gltf", JSON.stringify(parsed));
-				})
+				})*/
 
 				console.log(model.children);
 
-				fs.writeFileSync("verts.txt", og_verts);
+				
 				let LE = (os.endianness() == 'LE') ? true : false;
 				let bin = new BinaryFile("file.vert", "w", LE);
 				bin.open().then(()=>{
@@ -378,15 +354,15 @@
 			<table >
 				<tr>
 					<td>
-						<input style="width:100%;" type="range" min="1" max="100" value="0" class="slider" id="morph-forehead">
+						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-forehead">
 					</td>
 					<td>
-						<div class="label">Forehead</div>
+						<div class="label">Brow Depth</div>
 					</td>
 				</tr>
 				<tr>
 					<td>
-						<input style="width:100%;" type="range" min="1" max="100" value="0" class="slider" id="morph-jaw-height">
+						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-jaw-height">
 					</td>
 					<td>
 						<div class="label">Jaw Height</div>
@@ -394,10 +370,58 @@
 				</tr>
 				<tr>
 					<td>
-						<input style="width:100%;" type="range" min="1" max="100" value="0" class="slider" id="morph-jaw-width">
+						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-jaw-width">
 					</td>
 					<td>
 						<div class="label">Jaw Width</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-chin-depth">
+					</td>
+					<td>
+						<div class="label">Chin Depth</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-chin-height">
+					</td>
+					<td>
+						<div class="label">Chin Height</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-nose-depth">
+					</td>
+					<td>
+						<div class="label">Nose Depth</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-nose-width">
+					</td>
+					<td>
+						<div class="label">Nose Width</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-face-width">
+					</td>
+					<td>
+						<div class="label">Face Width</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-face-height">
+					</td>
+					<td>
+						<div class="label">Face Height</div>
 					</td>
 				</tr>
 			</table>
