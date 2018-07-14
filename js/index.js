@@ -2,12 +2,11 @@ const fs = require('fs-extra')
 const xml2js = require('xml2js')
 var THREE = require('three') // TODO: check if libraries already included
 require('./js/LoaderSupport.js')
-require('./js/OBJLoader2.js')
 require('./js/GLTFLoader.js')
 const JSZip = require('jszip')
 const StreamZip = require('node-stream-zip')
 const ModelFactory = require('./js/ModelFactory')
-
+const {execFileSync} = require("child_process")
 const CONFIG_PATH = "config.json";
 const os = require('os')
 let configuration = config();
@@ -17,7 +16,7 @@ let configuration = config();
 const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
 const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'], TEXTURE_PATH = configuration['TEXTURE_PATH'];
 var ROOT_PATH = configuration['ROOT_PATH'];
-
+var model_name = "henry.gltf"
 var model = null, model_info_list = [], og_verts = [];
 var current_rotation = 50, scene = new THREE.Scene(), screen_loaded = false;
 
@@ -156,8 +155,23 @@ async function exportHead(button){
 		mesh.attributes.position.needsUpdate = true;
 	}
 	let og_verts_copy = await og_verts.slice(0);
-	let result = await writeVertsFileModel('henry.verts', og_verts_copy, model);
+	
+	await rmdir(EXPORT_DIR);
+	let head_path = 'Objects/characters/humans/head/'
+	await mkdir(EXPORT_DIR + 'Data/custom_head');
+	await extractFrom(ROOT_PATH + "IPL_Heads.pak",  head_path + 'henry.skin', './' + EXPORT_DIR + 'Data/custom_head');
+	await writeVertsFileModel(EXPORT_DIR + 'Data/custom_head/' + "henry.verts", og_verts_copy, model)
+	try{
+		await execFileSync('resources/app.asar.unpacked/kcd_vertex_transplanter.exe', [EXPORT_DIR + 'Data/custom_head/' + "henry.verts", EXPORT_DIR + 'Data/custom_head/' + "henry.skin"])
+	}catch(e){
+		if(JSON.stringify(e).search("ENOENT") != -1)
+			alert(e);
+	}
 	await put_vertices_in_model(og_verts, model);
+	await zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + "Data/kcd_custom_head.pak", ['henry.skin'], head_path);	
+	await copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak')
+	await rmdir(EXPORT_DIR + 'Data/custom_head')
+
 	button.classList.remove('loading');
 }
 
@@ -183,131 +197,4 @@ function config(){
 		fs.writeFileSync('config.json', JSON.stringify(data));
 		return data;
 	}
-}
-
-function writeAsync(filename, data){
-	fs.writeFile(filename, data);
-}
-
-/**
- * Takes a directory, regular expression, whether or not to include the path in the output of strings.
- * The goal of this function is to list files in a directory corresponding to specific criteria
- * @param  {[type]}  directory    directory to scan for matching files
- * @param  {[type]}  re           regular expression to match with filenames
- * @param  {Boolean} include_path if true, relative path will be appended. default is true
- * @return {[type]}               returns of list of strings of the files in the directory that match the regular expression
- */
-function get_file_list(directory, re, include_path = true){
-	directory = directory.match(/(.*)\//i)[1];
-	let files = fs.readdirSync(directory), relevant_files = [];
-	for(let x = 0; x < files.length; x++){
-		if(files[x].match(re) != null){
-			let tmp = (include_path) ? directory + '/' + files[x] : files[x];
-			relevant_files.push(tmp);
-		}
-	}
-	return relevant_files;
-}
-
-/**
- * Function loads assets. Resolve value is the object that has been loaded.
- * Currently can load: OBJ, MTL, and Textures (jpg, png)
- * @param  {[String]} 		 filename name of file to load
- * @param  {String} type     type of loader to use on this file (obj, mtl, txt)
- * @return {[type]}          3DObject - may be Model, texture or material
- */
-function load_asset(filename, type = 'obj'){
-	console.log('loading ' + filename);
-	const loader_type = {'obj': THREE.OBJLoader2, 'mtl': THREE.MTLLoader, 'txt': THREE.TextureLoader, 'gltf': THREE.GLTFLoader};
-	return new Promise((resolve, reject) => {
-		let loader = new loader_type[type]();
-		loader.load(filename, (object) =>{
-			console.log("successfully loaded " + filename);
-			console.log(object);
-			if(type == 'obj')
-				resolve(object.detail.loaderRootNode)
-			else
-				resolve(object);
-		}, null, (err)=>{
-			console.log("error: " + err);
-			reject("loading " + filename + " FAILED: " + err);
-		});
-	});
-}
-
-function copy(file1, location){
-	return new Promise((res, rej) =>{
-		fs.copy(file1, location, ()=>{
-			res();
-		});
-	});
-}
-
-function mkdir(dir){
-	return new Promise((res, rej) =>{
-		fs.ensureDir(dir, (err)=>{
-				if(err != null)
-					rej();
-				res();
-		});
-	});
-}
-
-function rename(old_path, new_path){
-	return new Promise((res, rej) => {
-		if(fs.exists(old_path)){
-			fs.rename(old_path, new_path, (err)=>{
-				if(err != null)
-					rej('error occured' + err);
-				else
-					res('renamed ' + old_path + ' to ' + new_path);
-			});
-		}
-	});
-}
-
-function rmdir(dir){
-	return new Promise((res, rej) =>{
-	if(fs.exists(dir))
-		fs.remove(dir, ()=>{
-			console.log(dir + " removed");
-			res();
-		});
-	else
-		res();
-	})
-}
-
-function zipFolder(dir, name, files, path = "contents"){
-	return new Promise((res)=>{
-		let zip = new JSZip();
-		let folder = zip.folder(path);
-		for(let x = 0; x < files.length; x++){
-			let contents = fs.readFileSync(dir + files[x])
-			folder.file(files[x], contents, {binary:true});
-		}
-		zip.generateAsync({type: "uint8array"}).then((data)=>{
-			fs.writeFileSync(name, data);
-			res();
-		});
-	});
-}
-
-function exists(file)
-{
-	return fs.existsSync(file);
-}
-
-function extractFrom(archive_path, file_path, new_file)
-{
-	return new Promise((res, rej) => {
-		let zip_stream = new StreamZip({file: archive_path, store_entries: true});
-		zip_stream.on('ready', () =>{
-			zip_stream.extract(file_path, new_file, (err,count) => {
-				console.log('extracted ' + archive_path + '/' + file_path);
-				(count == 0) ? rej('Extract error') : res('Extracted');
-				zip_stream.close();
-			 });
-		});
-	});
 }

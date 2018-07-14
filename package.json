@@ -10,13 +10,8 @@
     "dist": "electron-builder"
   },
   "build": {
-    "files": [
-      "!package.texturebuild.json",
-      "!textures"
-    ],
-    "asarUnpack": [
-      "**models/**"
-    ],
+    "files":["!dist", "!resources", "!.git"],
+    "asarUnpack":["**models/**", "**bin/**"],
     "nsis": {
       "oneClick": false,
       "allowElevation": false,

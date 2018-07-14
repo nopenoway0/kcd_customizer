@@ -18,14 +18,6 @@ const {app, BrowserWindow, ipcMain} = require('electron')
       setup_window.webContents.send('paths', data);
     });
 
-    ipcMain.on('load_rebuild_window', (event, data) =>{
-      setup_window.on('ready-to-show', () =>{
-        setup_window.show();
-        setup_window.webContents.send('paths', data); 
-      });
-      setup_window.loadFile('rebuild_textures.html');
-    });
-
     ipcMain.on('show_setup_window', (event, data) =>{
       setup_window.show();
     });
@@ -34,6 +26,7 @@ const {app, BrowserWindow, ipcMain} = require('electron')
     {
       win.webContents.send('directory_set', path);
       win.webContents.send('resume_render');
+      setup_window.hide();
     });
 
     ipcMain.on('resume', (event, data) =>{

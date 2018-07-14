@@ -21,9 +21,7 @@
   			crossorigin="anonymous"></script>
 		<script src="semantic-ui/semantic.min.js"></script>
 		<script src="js/GLTFExporter.js"></script>
-		<script src="js/OBJExporter.js"></script>
 		<script src="js/LoaderSupport.js"></script>
-		<script src="js/OBJLoader2.js"></script>
 		<script src="js/MTLLoader.js"></script>
 		<script src="js/index.js"></script>
 		<script src="js/first_time_setup.js"></script>
@@ -37,7 +35,7 @@
 		</div>
 		<div hidden="true" id="part-controls" style="border-style: solid; border-color: orange; border-width: 2px; border-radius: 10px; background-color: white; width: 200px; position: absolute; top: 10px; right: 10px">
 			<table >
-				<tr>
+				<tr style="display:none;">
 					<td>
 						<button class="ui icon button">
 							<i class="angle left icon"></i>
@@ -52,7 +50,7 @@
 						</button>
 					</td>
 				</tr>
-				<tr>
+				<tr style="display:none;">
 					<td>
 						<button class="ui disabled icon button" >
 							<i class="angle left icon"></i>
@@ -67,7 +65,7 @@
 						</button>
 					</td>
 				</tr>
-				<tr>
+				<tr style="display:none;">
 					<td>
 						<button class="ui icon button" onclick="">
 							<i class="angle left icon"></i>
@@ -82,7 +80,7 @@
 						</button>
 					</td>
 				</tr>
-				<tr>
+				<tr style="display:none;">
 					<td>
 						<button class="ui disabled icon button">
 							<i class="angle left icon"></i>
@@ -110,8 +108,8 @@
 
 
 <div id="morph-controls" style="border-style: solid; border-color: orange; border-width: 2px; border-radius: 10px; background-color: white; width: 200px; position: absolute; top: 200px;">
-			<table >
-				<tr>
+			<table>
+				<tr style="display:none;">
 					<td>
 						<input style="width:100%;" type="range" min="1" max="100" value="50" class="slider" id="morph-forehead">
 					</td>
