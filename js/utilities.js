@@ -96,10 +96,11 @@ function put_vertices_in_model(list, model, refresh_verts = true){
  * @param  {[type]} og_verts [list of original vertices]
  * @param  {[type]} model    [parent of meshes that contain the new vertices]
  */
-function writeVertsFileModel(filename, og_verts, model){
+function writeVertsFileModel(filename, og_verts, model, callback){
 	return new Promise((res) =>{
 		let LE = (os.endianness() == 'LE') ? true : false;
 		let bin = new BinaryFile(filename, "w", LE);
+		let counter = 0;
 		bin.open().then(()=>{
 			(async function(){
 				for(let m = 0; m < model.children.length; m++){
@@ -109,6 +110,11 @@ function writeVertsFileModel(filename, og_verts, model){
 								og_verts[0] = og_verts[0] * -1;
 						let bytes = await bin.writeFloat(og_verts.shift());
 						bytes = await bin.writeFloat(mesh.attributes.position.array[x]);
+						if((x + 1) % 3 == 0){
+							counter+=1;
+							if(callback != null)
+								callback(counter);
+						}
 					}
 				}
 				return Promise.resolve()
