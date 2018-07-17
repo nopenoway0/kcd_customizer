@@ -145,7 +145,7 @@ function prev(type){
 async function exportHead(button){
 	button.classList.add('loading');
 	await applyMorphs(model);
-
+	let vertices_amt = 0;
 	// rotate 90* as model gets rotated when exported from blender
 	for(let m = 0; m < model.children.length; m++){
 		let mesh = model.children[m].geometry;
@@ -154,27 +154,47 @@ async function exportHead(button){
 			//mesh.attributes.position.array[x]
 			mesh.attributes.position.array[x + 1] = mesh.attributes.position.array[x + 2] * -1;
 			mesh.attributes.position.array[x + 2] = tmp;
+			vertices_amt+=1;
 		}
 		mesh.attributes.position.needsUpdate = true;
 	}
+
+	$("#loading-div").progress({
+		total: vertices_amt,
+		text: {
+			active: "Writing vertices to .verts file ({value}/{total})"
+		}
+	});
+	document.getElementById('loading-div').style.display = "inline";
+
+
 	let og_verts_copy = await og_verts.slice(0);
-	
 	await rmdir(EXPORT_DIR);
-	let head_path = 'Objects/characters/humans/head/'
-	await mkdir(EXPORT_DIR + 'Data/custom_head');
-	await extractFrom(ROOT_PATH + "IPL_Heads.pak",  head_path + 'henry.skin', './' + EXPORT_DIR + 'Data/custom_head');
-	await writeVertsFileModel(EXPORT_DIR + 'Data/custom_head/' + "henry.verts", og_verts_copy, model)
+	let head_path = 'Objects/characters/humans/head/';
+	try{
+		await mkdir(EXPORT_DIR + 'Data/custom_head');
+		await extractFrom(ROOT_PATH + "IPL_Heads.pak",  head_path + 'henry.skin', './' + EXPORT_DIR + 'Data/custom_head');
+		// TODO: use callback for loading bar
+		await writeVertsFileModel(EXPORT_DIR + 'Data/custom_head/' + "henry.verts", og_verts_copy, model, (cur_vert) =>{
+			$('#loading-div').progress('increment');
+		});
+	}catch(e){
+		alert(e);
+	}
+	
 	try{
 		await execFileSync(path.join(path.dirname (remote.process.execPath), 'resources/app.asar.unpacked/bin/kcd_vertex_transplanter.exe'), [EXPORT_DIR + 'Data/custom_head/' + "henry.verts", EXPORT_DIR + 'Data/custom_head/' + "henry.skin"])
 	}catch(e){
 		if(JSON.stringify(e).search("ENOENT") != -1)
-			alert(e);
+			alerT(e);
 	}
+
 	await put_vertices_in_model(og_verts, model);
 	await zipFolder(EXPORT_DIR + 'Data/custom_head/', EXPORT_DIR + "Data/kcd_custom_head.pak", ['henry.skin'], head_path);	
 	await copy(EXPORT_DIR + 'Data/kcd_custom_head.pak', EXPORT_DIR + 'Data/__fastload/kcd_custom_head.pak')
 	await rmdir(EXPORT_DIR + 'Data/custom_head')
 
+	document.getElementById('loading-div').style.display = "none";
 	button.classList.remove('loading');
 }
 
