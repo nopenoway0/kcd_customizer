@@ -1,3 +1,4 @@
+
 const fs = require('fs-extra')
 const xml2js = require('xml2js')
 var THREE = require('three') // TODO: check if libraries already included
@@ -10,6 +11,7 @@ const {execFileSync} = require("child_process")
 const CONFIG_PATH = "config.json";
 const os = require('os')
 let configuration = config();
+
 // run initial setup
 // set where to find default game models and mats, set fps, and necessary delay to achieve delay
 // and exported model directory
@@ -162,7 +164,7 @@ async function exportHead(button){
 	await extractFrom(ROOT_PATH + "IPL_Heads.pak",  head_path + 'henry.skin', './' + EXPORT_DIR + 'Data/custom_head');
 	await writeVertsFileModel(EXPORT_DIR + 'Data/custom_head/' + "henry.verts", og_verts_copy, model)
 	try{
-		await execFileSync('resources/app.asar.unpacked/kcd_vertex_transplanter.exe', [EXPORT_DIR + 'Data/custom_head/' + "henry.verts", EXPORT_DIR + 'Data/custom_head/' + "henry.skin"])
+		await execFileSync(path.join(path.dirname (remote.process.execPath), 'resources/app.asar.unpacked/bin/kcd_vertex_transplanter.exe'), [EXPORT_DIR + 'Data/custom_head/' + "henry.verts", EXPORT_DIR + 'Data/custom_head/' + "henry.skin"])
 	}catch(e){
 		if(JSON.stringify(e).search("ENOENT") != -1)
 			alert(e);
@@ -191,9 +193,9 @@ function config(){
 		return data;
 	}
 	else{
-		let data = {'SKIN_MODEL_PATH': 'resources/app.asar/materials/', 'FPS': 30,
-					 'EXPORT_DIR': 'exported/kcd_custom_head/', 'OBJ_MODEL_PATH': 'resources/app.asar.unpacked/models/',
-					 'MATERIAL_PATH': 'resources/app.asar/materials/', 'SHOW_TEXTURLESS_HEADS': true, 'ROOT_PATH': "", 'TEXTURE_PATH': "textures/"};
+		let data = {'SKIN_MODEL_PATH': 'materials/', 'FPS': 30,
+					 'EXPORT_DIR': 'exported/kcd_custom_head/', 'OBJ_MODEL_PATH': 'models/',
+					 'MATERIAL_PATH': 'materials/', 'SHOW_TEXTURLESS_HEADS': true, 'ROOT_PATH': "", 'TEXTURE_PATH': "textures/"};
 		fs.writeFileSync('config.json', JSON.stringify(data));
 		return data;
 	}
