@@ -11,6 +11,7 @@
   },
   "build": {
     "files": [
+      "!kcd_skin_modifier",
       "!dist",
       "!resources",
       "!.git"
