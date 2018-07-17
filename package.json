@@ -10,8 +10,14 @@
     "dist": "electron-builder"
   },
   "build": {
-    "files":["!dist", "!resources", "!.git"],
-    "asarUnpack":["**models/**", "**bin/**"],
+    "files": [
+      "!dist",
+      "!resources",
+      "!.git"
+    ],
+    "asarUnpack": [
+      "**bin/**"
+    ],
     "nsis": {
       "oneClick": false,
       "allowElevation": false,
@@ -32,6 +38,7 @@
     "xml2js": "^0.4.19"
   },
   "dependencies": {
+    "binary-file": "^0.2.1",
     "fs-extra": "^6.0.1",
     "jquery": "^3.3.1",
     "jszip": "^3.1.5",
