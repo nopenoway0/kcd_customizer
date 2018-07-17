@@ -8,10 +8,8 @@ The goal of this program is to allow customization of the main character, Henry,
 * Download source
 * Build `kcd_skin_modifer` using the sln file
 * Drag the built exe into the bin folder
-* ```
-	npm install
-	npm run dist
-```
+* `npm install`
+* `npm run dist`
 * The executable will be created under `dist/win-unpacked`
 
 ## Setup
