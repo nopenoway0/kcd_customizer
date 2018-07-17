@@ -90,14 +90,15 @@ window.onload = () => {
 // start initialization for rendering
 function init(){
 	// create basics for scene
-	var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
-	var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+	var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 3);
+	var camera = new THREE.PerspectiveCamera( 1, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
 	var renderer = new THREE.WebGLRenderer();
 	renderer.setSize( window.innerWidth, window.innerHeight);
 	document.body.appendChild( renderer.domElement );
 	next('head');
 	scene.add( light );
-	camera.position.y = .28, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
+	camera.position.y = 15, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
 	// start rendering at a set delay speed
 	(function startRendering(){
 		setTimeout(() => {
