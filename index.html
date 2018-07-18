@@ -37,9 +37,9 @@
 		</div>
 		<div hidden="true" id="part-controls" style="border-style: solid; border-color: orange; border-width: 2px; border-radius: 10px; background-color: white; width: 200px; position: absolute; top: 10px; right: 10px">
 			<table >
-				<tr style="display:none;">
+				<tr>
 					<td>
-						<button class="ui icon button">
+						<button class="ui icon button" onclick="prev()">
 							<i class="angle left icon"></i>
 						</button>
 					</td>
@@ -47,14 +47,14 @@
 						<div class="label">Head</div>
 					</td>
 					<td>
-						<button class="ui icon button" >
+						<button class="ui icon button" onclick="next()"">
 							<i class="angle right icon"></i>
 						</button>
 					</td>
 				</tr>
 				<tr style="display:none;">
 					<td>
-						<button class="ui disabled icon button" >
+						<button class="ui disabled icon button">
 							<i class="angle left icon"></i>
 						</button>
 					</td>

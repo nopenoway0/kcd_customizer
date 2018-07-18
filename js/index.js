@@ -18,8 +18,8 @@ let configuration = config();
 const SKIN_MODEL_PATH = configuration['SKIN_MODEL_PATH'], FPS = configuration['FPS'], DELAY = 1000 / FPS, EXPORT_DIR = configuration['EXPORT_DIR'];
 const OBJ_MODEL_PATH = configuration['OBJ_MODEL_PATH'], MATERIAL_PATH = configuration['MATERIAL_PATH'], SHOW_TEXTURLESS_HEADS = configuration['SHOW_TEXTURLESS_HEADS'], TEXTURE_PATH = configuration['TEXTURE_PATH'];
 var ROOT_PATH = configuration['ROOT_PATH'];
-var model_name = "henry.gltf"
-var model = null, model_info_list = [], og_verts = [];
+var model_names = ["henry.gltf", "s1_head_v030.gltf"]
+var model = null, model_info_list = [], og_verts = [], model_index = -1;
 var current_rotation = 50, scene = new THREE.Scene(), screen_loaded = false;
 
 // TODO: change 1 morph to CPU computation, limit has been reached
@@ -98,7 +98,7 @@ function init(){
 	document.body.appendChild( renderer.domElement );
 	next('head');
 	scene.add( light );
-	camera.position.y = 15, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
+	camera.position.y = 16, camera.lookAt(0,0,0), camera.position.z = 1.6, camera.rotateZ(3.14);
 	// start rendering at a set delay speed
 	(function startRendering(){
 		setTimeout(() => {
@@ -117,7 +117,12 @@ function init(){
 
 
 function next(type = 'head'){
-	load_asset(/*'../../' +*/ OBJ_MODEL_PATH + 'henry.gltf', 'gltf').then((result) =>{
+	model_index += 1;
+	if(model_index < 0)
+		model_index *= -1;
+	model_index = model_index % model_names.length;
+	scene.remove(model);
+	load_asset(OBJ_MODEL_PATH + model_names[model_index], 'gltf').then((result) =>{
 		console.log("result");
 		console.log(result);
 		model = result.scene.children[0];
@@ -139,7 +144,9 @@ function screenLoaded(){
 	screen_loaded = true;
 }
 
-function prev(type){
+function prev(type= "head"){
+	model_index -= 2;
+	next(type);
 }
 
 async function exportHead(button){
@@ -186,7 +193,7 @@ async function exportHead(button){
 		await execFileSync(path.join(path.dirname (remote.process.execPath), 'resources/app.asar.unpacked/bin/kcd_vertex_transplanter.exe'), [EXPORT_DIR + 'Data/custom_head/' + "henry.verts", EXPORT_DIR + 'Data/custom_head/' + "henry.skin"])
 	}catch(e){
 		if(JSON.stringify(e).search("ENOENT") != -1)
-			alerT(e);
+			alert(e);
 	}
 
 	await put_vertices_in_model(og_verts, model);
